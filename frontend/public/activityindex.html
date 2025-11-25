@@ -1,0 +1,1544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活动报名系统 - By HAISNAP</title>
+    
+    <!-- 缓存控制 -->
+    <meta http-equiv="Cache-Control" content="max-age=3600, must-revalidate">
+    
+    <!-- 预加载关键资源 -->
+    <link rel="preload" href="activity_management.html" as="document">
+    <link rel="preload" href="https://cdn.tailwindcss.com" as="style">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" as="style">
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js" as="script">
+    <link rel="preload" href="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js" as="script">
+    
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="assets/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/supabase.js"></script>
+    <!-- SheetJS for Word export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Chart.js for pie charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        dark: {
+                            100: '#1e293b',
+                            200: '#0f172a',
+                            300: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Microsoft YaHei', 'Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* 玻璃拟态样式 */
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            .glass-hover {
+                transition: all 0.3s ease;
+            }
+            .glass-hover:hover {
+                background: rgba(255, 255, 255, 0.25);
+                transform: scale(1.02);
+            }
+            
+            /* 背景blob */
+            .blob {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(80px);
+                opacity: 0.2;
+                z-index: -1;
+            }
+            
+            /* 自定义滚动条 */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+
+            /* 下拉菜单样式 */
+            select {
+                background-color: #374151 !important;
+                color: white !important;
+            }
+            
+            select option {
+                background-color: #374151 !important;
+                color: white !important;
+            }
+            
+            select option:hover,
+            select option:checked {
+                background-color: #4b5563 !important;
+                color: white !important;
+            }
+            
+            /* 卡片动效 */
+            .activity-card {
+                animation: fadeInUp 0.5s ease-out forwards;
+                transform-origin: center;
+            }
+            
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            
+            .activity-card.fade-out {
+                animation: fadeOut 0.3s ease-out forwards;
+            }
+            
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: scale(0.95);
+                }
+            }
+
+            /* 剩余天数标签动态样式 */
+            .days-tag {
+                transition: all 0.3s ease;
+                font-weight: 600;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            }
+            
+            .days-tag-urgent {
+                background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+                box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+                animation: pulse-red 2s infinite;
+            }
+            
+            .days-tag-warning {
+                background: linear-gradient(135deg, #ea580c 0%, #f97316 100%);
+                box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+            }
+            
+            .days-tag-caution {
+                background: linear-gradient(135deg, #ca8a04 0%, #eab308 100%);
+                box-shadow: 0 4px 12px rgba(202, 138, 4, 0.2);
+            }
+            
+            .days-tag-safe {
+                background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+                box-shadow: 0 4px 12px rgba(5, 150, 105, 0.2);
+            }
+            
+            .days-tag-ended {
+                background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+                box-shadow: 0 4px 12px rgba(107, 114, 128, 0.2);
+            }
+
+            @keyframes pulse-red {
+                0%, 100% {
+                    transform: scale(1);
+                    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+                }
+                50% {
+                    transform: scale(1.05);
+                    box-shadow: 0 6px 16px rgba(220, 38, 38, 0.6);
+                }
+            }
+        }
+    </style>
+    <style>
+        .theme-light .glass { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+        .theme-light .glass-hover:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+        .theme-light .blob { opacity: 0.12; filter: blur(80px); }
+        .theme-light select { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+        .theme-light select option { background-color: #ffffff !important; color: #0f172a !important; }
+        .theme-light .text-gray-300 { color: #374151 !important; }
+        .theme-light .text-gray-400 { color: #4b5563 !important; }
+        .animated-gradient { background: linear-gradient(135deg, #ffffff, #f6fafe, #e0f2fe, #ffffff); background-size: 400% 400%; animation: gradientShift 20s ease infinite; }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white custom-scrollbar">
+    <!-- 背景blob -->
+    <div class="blob bg-blue-500 w-96 h-96 top-0 left-0 animate-blob"></div>
+    <div class="blob bg-purple-500 w-96 h-96 bottom-0 right-0 animate-blob" style="animation-delay: -10s;"></div>
+    <div class="blob bg-pink-500 w-96 h-96 top-1/2 right-1/4 animate-blob" style="animation-delay: -5s;"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-50 glass px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-calendar-o text-2xl text-primary"></i>
+                <h1 class="text-xl font-bold">活动报名系统</h1>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- 活动管理按钮 -->
+                <button id="activityManagementBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-cog mr-2"></i>活动管理
+                </button>
+                <!-- 返回首页 -->
+                <a href="index.html" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-arrow-left mr-2"></i>返回首页
+                </a>
+                <button id="themeToggle" class="p-2 rounded-full glass hover:bg-white/20 transition-all" title="切换主题">
+                    <i id="themeIcon" class="fa fa-moon-o"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            applyThemeFromStorage();
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const next = (localStorage.getItem('theme') === 'light') ? 'dark' : 'light';
+                    setTheme(next);
+                });
+            }
+        });
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const body = document.body;
+            if (theme === 'light') {
+                html.classList.add('theme-light');
+                body.classList.remove('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                body.classList.add('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-sun-o'; }
+            } else {
+                html.classList.remove('theme-light');
+                body.classList.remove('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                body.classList.add('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-moon-o'; }
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function applyThemeFromStorage() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            setTheme(theme);
+        }
+    </script>
+    
+    <!-- 标题区域 -->
+    <section class="container mx-auto px-4 py-8 text-center">
+        <p class="font-normal text-lg mb-2">华建集团</p>
+        <p class="font-bold text-3xl mb-2">城市更新事业部</p>
+        <p class="font-normal text-lg">——活动报名系统</p>
+    </section>
+    
+    <!-- 搜索和筛选区域 -->
+    <section class="container mx-auto px-4 mb-8">
+        <div class="glass rounded-2xl p-6">
+            <!-- 搜索框 -->
+            <div class="mb-4">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="搜索活动主题、主讲人姓名、活动主办单位" 
+                           class="w-full px-4 py-3 pr-12 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary text-white placeholder-gray-400">
+                    <i class="fa fa-search absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+            
+            <!-- 筛选按钮 -->
+            <div class="flex flex-wrap justify-between items-center mb-4">
+                <div class="flex gap-2">
+                    <button class="filter-btn px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all" data-filter="all">
+                        全部活动
+                    </button>
+                    <button class="filter-btn px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-filter="ongoing">
+                        进行中活动
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button class="filter-btn px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-filter="training">
+                        培训及讲座活动
+                    </button>
+                    <button class="filter-btn px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-filter="internal">
+                        院内活动
+                    </button>
+                    <button class="filter-btn px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-filter="external">
+                        院外活动
+                    </button>
+                </div>
+            </div>
+           
+
+        </div>
+    </section>
+    
+    <!-- 活动卡片容器 -->
+    <main class="container mx-auto px-4 pb-8">
+        <div id="activityContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 动态生成的活动卡片 -->
+        </div>
+    </main>
+    
+    <!-- 报名表单模态框 -->
+    <div id="signupModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="signupOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">活动报名</h2>
+                    <button id="closeSignupModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="signupForm" class="space-y-4">
+                    <div>
+                        <label class="block mb-2">部门 *</label>
+                        <select id="departmentSelect" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                            <option value="">请选择部门</option>
+                            <option value="现代建筑一院">现代建筑一院</option>
+                            <option value="现代建筑二院">现代建筑二院</option>
+                            <option value="现代建筑三院">现代建筑三院</option>
+                            <option value="现代规划一院">现代规划一院</option>
+                            <option value="现代规划二院">现代规划二院</option>
+                            <option value="现代结构院">现代结构院</option>
+                            <option value="现代设备院">现代设备院</option>
+                            <option value="现代室内景观院">现代室内景观院</option>
+                            <option value="现代数字中心">现代数字中心</option>
+                            <option value="现代项目部">现代项目部</option>
+                            <option value="现代院其他部门">现代院其他部门</option>
+                            <option value="房科院">房科院</option>
+                            <option value="检测站">检测站</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">姓名 *</label>
+                        <input type="text" id="nameInput" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                    </div>
+                    
+                    <button type="submit" class="w-full py-3 rounded-lg bg-primary hover:bg-primary/80 transition-all font-bold">
+                        提交报名
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 报名统计模态框 -->
+    <div id="statsModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="statsOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">报名统计</h2>
+                    <button id="closeStatsModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="statsContent">
+                    <!-- 动态生成的统计内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图片预览模态框 -->
+    <div id="imagePreviewModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/80" id="imagePreviewOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl p-4">
+            <div class="relative">
+                <button id="closeImagePreviewBtn" class="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+                <img id="previewImage" class="w-full h-auto max-h-[85vh] object-contain rounded-lg" src="" alt="预览图片">
+                <div id="imagePreviewName" class="text-center text-white mt-4 text-lg"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 性能监控
+        const perfStart = performance.now();
+        console.log('[Performance] Script loaded at:', perfStart);
+        
+        // 优化跳转函数，使用更快的页面切换
+        function optimizedNavigate(url) {
+            // 预加载目标页面
+            const link = document.createElement('link');
+            link.rel = 'prefetch';
+            link.href = url;
+            document.head.appendChild(link);
+            
+            // 延迟跳转，确保预加载开始
+            setTimeout(() => {
+                window.location.replace(url);
+            }, 50);
+        }
+        
+        // 全局变量
+        let activities = [];
+        let signups = [];
+        let currentFilter = 'all';
+        let currentSort = '';
+        let currentActivityId = null;
+        let pieChartInstance = null;
+        let isRendering = false; // 防止重复渲染
+        let renderBatchSize = 6; // 每批渲染数量
+        
+        // 获取活动状态（根据日期自动判断）- 优化缓存
+        const statusCache = new Map();
+        function getActivityStatus(time) {
+            if (statusCache.has(time)) {
+                return statusCache.get(time);
+            }
+            const currentDate = new Date();
+            const activityDate = new Date(time);
+            const status = currentDate > activityDate ? 'ended' : 'ongoing';
+            statusCache.set(time, status);
+            return status;
+        }
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            const initStart = performance.now();
+            console.log('[Performance] DOMContentLoaded at:', initStart);
+            
+            // 显示加载提示
+            const container = document.getElementById('activityContainer');
+            container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8"><i class="fa fa-spinner fa-spin mr-2"></i>加载中...</div>';
+            
+            // 使用 requestIdleCallback 优化初始化
+            if ('requestIdleCallback' in window) {
+                requestIdleCallback(() => {
+                    initActivities();
+                    initEventListeners();
+                    setupFilter();
+                    renderActivitiesOptimized();
+                    const initEnd = performance.now();
+                    console.log('[Performance] Init completed in:', initEnd - initStart, 'ms');
+                });
+            } else {
+                setTimeout(() => {
+                    initActivities();
+                    initEventListeners();
+                    setupFilter();
+                    renderActivitiesOptimized();
+                    const initEnd = performance.now();
+                    console.log('[Performance] Init completed in:', initEnd - initStart, 'ms');
+                }, 0);
+            }
+        });
+        
+        // 优化的渲染函数 - 分批渲染
+        function renderActivitiesOptimized(searchTerm = '') {
+            if (isRendering) {
+                console.log('[Performance] Render in progress, skipping');
+                return;
+            }
+            isRendering = true;
+            const renderStart = performance.now();
+            
+            let filteredActivities = filterAndSortActivities(searchTerm);
+            const container = document.getElementById('activityContainer');
+            
+            if (filteredActivities.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">暂无活动</div>';
+                isRendering = false;
+                return;
+            }
+            
+            // 清空容器
+            container.innerHTML = '';
+            
+            // 分批渲染
+            let currentBatch = 0;
+            const totalBatches = Math.ceil(filteredActivities.length / renderBatchSize);
+            
+            function renderNextBatch() {
+                const start = currentBatch * renderBatchSize;
+                const end = Math.min(start + renderBatchSize, filteredActivities.length);
+                const batch = filteredActivities.slice(start, end);
+                
+                const fragment = document.createDocumentFragment();
+                batch.forEach((activity, index) => {
+                    const card = createActivityCard(activity, start + index);
+                    fragment.appendChild(card);
+                });
+                
+                container.appendChild(fragment);
+                currentBatch++;
+                
+                if (currentBatch < totalBatches) {
+                    requestAnimationFrame(renderNextBatch);
+                } else {
+                    isRendering = false;
+                    const renderEnd = performance.now();
+                    console.log('[Performance] Render completed in:', renderEnd - renderStart, 'ms');
+                }
+            }
+            
+            renderNextBatch();
+        }
+        
+        // 筛选和排序活动
+        function filterAndSortActivities(searchTerm = '') {
+            let filtered = [...activities];
+            
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                filtered = filtered.filter(activity => 
+                    activity.title.toLowerCase().includes(term) ||
+                    activity.organizer.toLowerCase().includes(term) ||
+                    (activity.speakerName && activity.speakerName.toLowerCase().includes(term))
+                );
+            }
+            
+            if (currentFilter !== 'all') {
+                if (currentFilter === 'ongoing') {
+                    const twentyFourHoursAgo = new Date();
+                    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+                    filtered = filtered.filter(a => {
+                        const activityTime = new Date(a.time || a.createdAt);
+                        return activityTime >= twentyFourHoursAgo;
+                    });
+                } else {
+                    filtered = filtered.filter(a => a.type === currentFilter);
+                }
+            }
+            
+            if (currentSort) {
+                switch(currentSort) {
+                    case 'month':
+                        filtered.sort((a, b) => new Date(b.time || b.createdAt) - new Date(a.time || a.createdAt));
+                        break;
+                    case 'organizer':
+                        filtered.sort((a, b) => a.organizer.localeCompare(b.organizer));
+                        break;
+                    case 'type':
+                        filtered.sort((a, b) => a.type.localeCompare(b.type));
+                        break;
+                }
+            } else {
+                const now = new Date();
+                filtered.sort((a, b) => {
+                    const aOngoing = getActivityStatus(a.time || a.createdAt) === 'ongoing';
+                    const bOngoing = getActivityStatus(b.time || b.createdAt) === 'ongoing';
+                    if (aOngoing && !bOngoing) return -1;
+                    if (!aOngoing && bOngoing) return 1;
+                    return new Date(b.time || b.createdAt) - new Date(a.time || a.createdAt);
+                });
+            }
+            
+            return filtered;
+        }
+        
+        // 获取剩余天数和动态标签样式 - 增强版
+        function getDaysRemaining(targetDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // 设置为当天00:00:00
+            
+            // 兼容多种格式
+            let target;
+            if (typeof targetDate === 'string') {
+                const normalizedStr = targetDate.replace('T', ' ');
+                target = new Date(normalizedStr);
+            } else {
+                target = new Date(targetDate);
+            }
+            target.setHours(0, 0, 0, 0); // 设置为目标日期00:00:00
+            
+            const diff = target - today;
+            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            
+            let text = '';
+            let tagClass = '';
+            let tagType = '';
+            
+            if (days < 0) {
+                // 已过期 - 显示已结束，灰色
+                text = `已结束`;
+                tagClass = 'days-tag-ended';
+                tagType = 'ended';
+            } else if (days === 0) {
+                // 今天 - 红色渐变，带动画
+                text = '今天';
+                tagClass = 'days-tag-urgent';
+                tagType = 'urgent';
+            } else if (days === 1) {
+                // 明天 - 橙红色渐变
+                text = '明天';
+                tagClass = 'days-tag-warning';
+                tagType = 'warning';
+            } else if (days <= 3) {
+                // 3天内 - 橙色渐变
+                text = `剩余${days}天`;
+                tagClass = 'days-tag-warning';
+                tagType = 'warning';
+            } else if (days <= 7) {
+                // 一周内 - 黄色渐变
+                text = `剩余${days}天`;
+                tagClass = 'days-tag-caution';
+                tagType = 'caution';
+            } else if (days <= 15) {
+                // 半月内 - 黄绿色渐变
+                text = `剩余${days}天`;
+                tagClass = 'days-tag-safe';
+                tagType = 'safe';
+            } else {
+                // 超过半月 - 绿色渐变
+                text = `剩余${days}天`;
+                tagClass = 'days-tag-safe';
+                tagType = 'safe';
+            }
+            
+            return { days, text, tagClass, tagType };
+        }
+        
+        // 创建活动卡片元素
+        function createActivityCard(activity, index) {
+            const card = document.createElement('div');
+            card.className = 'activity-card glass glass-hover rounded-2xl p-6 relative pb-24';
+            card.style.animationDelay = `${(index % renderBatchSize) * 0.05}s`;
+            
+            const activityTime = activity.time || activity.createdAt || new Date().toISOString();
+            const isOngoing = getActivityStatus(activityTime) === 'ongoing';
+            const month = new Date(activityTime).getMonth() + 1;
+            const signupCount = signups.filter(s => s.activityId === activity.id).length;
+            const hasDetails = activity.description || (activity.files && activity.files.length > 0);
+            const daysInfo = getDaysRemaining(activityTime);
+            const typeLabel = getActivityTypeLabel(activity.type);
+            
+            card.innerHTML = `
+                <div class="absolute top-4 right-4 px-3 py-1 rounded-full bg-red-500 text-white text-sm font-bold">
+                    ${month}月
+                </div>
+                <div class="flex items-center mb-2 pr-16">
+                    <span class="text-xs px-2 py-0.5 rounded-full ${typeLabel.class} whitespace-nowrap mr-2">${typeLabel.text}</span>
+                    <h3 class="text-2xl font-bold flex-1">${activity.title}</h3>
+                </div>
+                <hr class="border-t border-white/20 my-3">
+                <div class="flex items-center gap-2 mb-4">
+                    ${isOngoing ? 
+                        '<span class="px-2 py-1 rounded-full text-xs bg-green-500/20 text-green-400">进行中</span>' : 
+                        '<span class="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400">已结束</span>'
+                    }
+                    <span class="text-sm text-gray-400">${signupCount}人已报名</span>
+                    <!-- 剩余天数标签 - 使用动态样式 -->
+                    <span class="days-tag px-2 py-1 rounded-full text-xs ${daysInfo.tagClass}">
+                        ${daysInfo.text}
+                    </span>
+                </div>
+                <div class="space-y-2 mb-4">
+                    <div class="flex items-center text-gray-300">
+                        <i class="fa fa-building mr-2 w-4"></i>
+                        <span>${activity.organizer}</span>
+                    </div>
+                    <div class="flex items-center text-gray-300">
+                        <i class="fa fa-calendar mr-2 w-4"></i>
+                        <span>${formatDateTime(activityTime)}</span>
+                    </div>
+                    <div class="flex items-center text-gray-300">
+                        <i class="fa fa-map-marker mr-2 w-4"></i>
+                        <span>${activity.location}</span>
+                    </div>
+                    ${activity.speakerName ? `
+                    <div class="flex items-start text-gray-300">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-1">
+                                <i class="fa fa-user mr-2 w-4"></i>
+                                <span class="font-bold">${activity.speakerName}</span>
+                            </div>
+                            ${activity.speakerTitle && activity.speakerTitle.length > 0 ? `
+                            <div class="ml-6 space-y-1">
+                                ${activity.speakerTitle.map(title => `
+                                    <div class="flex items-start text-gray-400">
+                                        <i class="fa fa-id-card mr-2 w-4 mt-1 opacity-0"></i>
+                                        <span class="text-xs">${title}</span>
+                                    </div>
+                                `).join('')}
+                            </div>` : ''}
+                        </div>
+                    </div>` : ''}
+                </div>
+                ${activity.requirements ? `
+                <div class="mb-4 flex items-center gap-2">
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 whitespace-nowrap">各部门参加要求</span>
+                    <p class="text-sm text-white">${activity.requirements}</p>
+                </div>` : ''}
+                ${hasDetails ? `
+                <div id="details-${activity.id}" class="hidden mb-4 p-3 rounded-lg bg-white/5 space-y-3">
+                    ${activity.description ? `
+                    <div>
+                        <h4 class="font-bold mb-2">活动简介</h4>
+                        <p class="text-gray-300">${activity.description}</p>
+                    </div>` : ''}
+                    ${((activity.attachments && activity.attachments.length > 0) || (activity.files && activity.files.length > 0)) ? `
+                    <div>
+                        <h4 class="font-bold mb-2">附件</h4>
+                        <div class="grid grid-cols-2 gap-3">
+                            ${((activity.attachments && activity.attachments.length > 0) ? activity.attachments : (activity.files || [])).map(file => {
+                                const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.name) || (file.type && file.type.startsWith('image/'));
+                                if (isImage) {
+                                    return `
+                                    <div class="relative group">
+                                        <div class="aspect-video bg-white/5 rounded-lg overflow-hidden cursor-pointer" onclick="previewImage('${file.name}', '${file.type}', '${file.data || file.url || ''}')">
+                                            <img src="${file.data || file.url || `https://picsum.photos/400/300?random=${file.name}`}" class="w-full h-full object-cover" alt="${file.name}">
+                                        </div>
+                                        <div class="flex items-center justify-between mt-2">
+                                            <span class="text-xs text-gray-400 truncate flex-1 mr-2">${file.name}</span>
+                                            <div class="flex space-x-1">
+                                                <button onclick="previewImage('${file.name}', '${file.type}', '${file.data || file.url || ''}')" class="px-2 py-1 text-xs rounded bg-blue-500/80 hover:bg-blue-500 transition-all" title="预览">
+                                                    <i class="fa fa-search-plus"></i>
+                                                </button>
+                                                <button onclick="downloadFile('${file.name}', '${file.url || ''}', '${file.data || ''}')" class="px-2 py-1 text-xs rounded bg-green-500/80 hover:bg-green-500 transition-all" title="下载">
+                                                    <i class="fa fa-download"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>`;
+                                } else {
+                                    const fileIcon = file.name.endsWith('.pdf') ? 'fa-file-pdf-o' : 
+                                                   file.name.endsWith('.doc') || file.name.endsWith('.docx') ? 'fa-file-word-o' : 
+                                                   file.name.endsWith('.xls') || file.name.endsWith('.xlsx') ? 'fa-file-excel-o' : 'fa-file-o';
+                                    return `
+                                    <div class="flex items-center justify-between text-gray-300 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                                        <div class="flex items-center flex-1 min-w-0 mr-2">
+                                            <i class="fa ${fileIcon} mr-2 text-lg text-blue-400"></i>
+                                            <span class="text-sm truncate">${file.name}</span>
+                                        </div>
+                                        <button onclick="downloadFile('${file.name}', '${file.url || ''}', '')" class="px-2 py-1 text-xs rounded bg-green-500/80 hover:bg-green-500 transition-all flex-shrink-0" title="下载">
+                                            <i class="fa fa-download"></i>
+                                        </button>
+                                    </div>`;
+                                }
+                            }).join('')}
+                        </div>
+                    </div>` : ''}
+                </div>
+                <button onclick="toggleDetails('${activity.id}')" class="text-sm text-gray-400 hover:text-white transition-colors mb-3">
+                    <i class="fa fa-chevron-down mr-1"></i>更多
+                </button>` : ''}
+                <div class="absolute bottom-6 left-6 right-6 flex justify-between items-center">
+                    <button onclick="showStats('${activity.id}')" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-users mr-2"></i>查看报名情况
+                    </button>
+                    <button onclick="openSignup('${activity.id}')" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all ${!isOngoing ? 'opacity-50 cursor-not-allowed' : ''}" 
+                            ${!isOngoing ? 'disabled' : ''}>
+                        <i class="fa fa-plus mr-2"></i>立即报名
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+        
+        // 防抖函数
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // 设置筛选按钮
+        function setupFilter() {
+            currentFilter = 'all';
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === 'all') {
+                    btn.classList.add('bg-primary');
+                    btn.classList.remove('glass');
+                } else {
+                    btn.classList.remove('bg-primary');
+                    btn.classList.add('glass');
+                }
+            });
+        }
+        
+        // 数据缓存
+        let activitiesCache = null;
+        let signupsCache = null;
+        let lastLoadTime = 0;
+        const CACHE_DURATION = 5000; // 5秒缓存
+        
+        // 初始化活动数据 - 优化性能
+        async function initActivities() {
+            const loadStart = performance.now();
+            
+            // 使用缓存机制
+            const now = Date.now();
+            if (activitiesCache && signupsCache && (now - lastLoadTime < CACHE_DURATION)) {
+                activities = activitiesCache;
+                signups = signupsCache;
+                console.log('[Performance] Using cached data');
+                return;
+            }
+            
+            try {
+                const { data, error } = await Supa.client.from('activities').select('*').order('created_at', { ascending: false });
+                activities = (!error && Array.isArray(data)) ? data : [];
+            } catch (e) { activities = []; }
+            try {
+                const { data, error } = await Supa.client.from('signups').select('*').order('created_at', { ascending: false });
+                signups = (!error && Array.isArray(data)) ? data : [];
+            } catch (e) { signups = []; }
+            
+            // 更新缓存
+            activitiesCache = activities;
+            signupsCache = signups;
+            lastLoadTime = now;
+            
+            const loadEnd = performance.now();
+            renderActivitiesOptimized();
+        }
+        
+        // 初始化事件监听器 - 优化性能
+        function initEventListeners() {
+            // 搜索功能 - 添加防抖
+            const searchInput = document.getElementById('searchInput');
+            const debouncedSearch = debounce(function(searchTerm) {
+                console.log('[Performance] Search triggered:', searchTerm);
+                renderActivitiesOptimized(searchTerm);
+            }, 300);
+            
+            searchInput.addEventListener('input', function(e) {
+                debouncedSearch(e.target.value);
+            });
+            
+            // 筛选按钮 - 优化性能
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    console.log('[Performance] Filter changed to:', this.dataset.filter);
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.classList.remove('bg-primary');
+                        b.classList.add('glass');
+                    });
+                    this.classList.remove('glass');
+                    this.classList.add('bg-primary');
+                    currentFilter = this.dataset.filter;
+                    document.getElementById('searchInput').value = '';
+                    renderActivitiesOptimized();
+                });
+            });
+            
+            // 统计按钮 - 优化性能
+            document.querySelectorAll('.stat-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    currentSort = this.dataset.sort;
+                    renderActivitiesOptimized();
+                });
+            });
+            
+            // 活动管理按钮 - 优化跳转
+            document.getElementById('activityManagementBtn').addEventListener('click', function() {
+                console.log('[Performance] Navigating to activity management');
+                optimizedNavigate('./activity_management.html');
+            });
+            
+            // 报名模态框
+            document.getElementById('closeSignupModal').addEventListener('click', closeSignupModal);
+            document.getElementById('signupOverlay').addEventListener('click', closeSignupModal);
+            document.getElementById('signupForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                var department = document.getElementById('departmentSelect').value;
+                var name = document.getElementById('nameInput').value;
+                if (window.Common) {
+                    var check = Common.validateSignup(department, name);
+                    if (!check.ok) { showToast(check.message, 'error'); return; }
+                }
+                submitSignup();
+            });
+            
+            // 统计模态框
+            document.getElementById('closeStatsModal').addEventListener('click', closeStatsModal);
+            document.getElementById('statsOverlay').addEventListener('click', closeStatsModal);
+
+            // 图片预览模态框
+            const closeImagePreviewBtn = document.getElementById('closeImagePreviewBtn');
+            const imagePreviewOverlay = document.getElementById('imagePreviewOverlay');
+            
+            function closeImagePreviewModal() {
+                document.getElementById('imagePreviewModal').classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeImagePreviewBtn.addEventListener('click', closeImagePreviewModal);
+            imagePreviewOverlay.addEventListener('click', closeImagePreviewModal);
+        }
+        
+        // 获取活动类型标签
+        function getActivityTypeLabel(type) {
+            const typeMap = {
+                'training': { text: '培训及讲座', class: 'bg-blue-500/20 text-blue-200' },
+                'internal': { text: '院内活动', class: 'bg-green-500/20 text-green-200' },
+                'external': { text: '院外活动', class: 'bg-orange-500/20 text-orange-200' }
+            };
+            return typeMap[type] || { text: '未知类型', class: 'bg-gray-500/20 text-gray-200' };
+        }
+        
+        // 切换详情显示
+        function toggleDetails(activityId) {
+            const details = document.getElementById(`details-${activityId}`);
+            details.classList.toggle('hidden');
+        }
+        
+        // 切换额外主讲人显示
+        function toggleExtraSpeakers(activityId) {
+            const extraSpeakers = document.getElementById(`extra-speakers-${activityId}`);
+            const icon = document.getElementById(`speaker-icon-${activityId}`);
+            const text = document.getElementById(`speaker-text-${activityId}`);
+            
+            if (extraSpeakers.classList.contains('hidden')) {
+                extraSpeakers.classList.remove('hidden');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+                text.textContent = '收起主讲人';
+            } else {
+                extraSpeakers.classList.add('hidden');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+                text.textContent = '更多主讲人';
+            }
+        }
+        
+        // 图片预览功能（模拟）
+        function previewImage(fileName, fileType, src) {
+            const modal = document.getElementById('imagePreviewModal');
+            const previewImg = document.getElementById('previewImage');
+            const previewName = document.getElementById('imagePreviewName');
+            previewImg.src = src || `https://picsum.photos/800/600?random=${Date.now()}`;
+            previewName.textContent = fileName;
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 文件下载功能（模拟）
+        function downloadFile(fileName, url, dataUrl) {
+            const a = document.createElement('a');
+            a.href = url || dataUrl || '#';
+            a.download = fileName;
+            a.click();
+            showToast(`开始下载文件：${fileName}`);
+        }
+        
+        // 打开报名模态框
+        function openSignup(activityId) {
+            currentActivityId = activityId;
+            document.getElementById('signupModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭报名模态框
+        function closeSignupModal() {
+            document.getElementById('signupModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('signupForm').reset();
+            currentActivityId = null;
+        }
+        
+        // 提交报名
+        async function submitSignup() {
+            const department = document.getElementById('departmentSelect').value;
+            const name = document.getElementById('nameInput').value;
+            
+            if (!department || !name) return;
+            const gu = await Supa.client.auth.getUser();
+            const user = (gu && gu.data && gu.data.user) || null;
+            if (!user) { showToast('请先登录', 'error'); return; }
+            if (window.Common){ const ok = await Common.ensureNotFrozen(); if (!ok) return; }
+            const ins = await Supa.client.from('signups').insert({ activity_id: currentActivityId, department, name }).select('*').single();
+            if (ins && ins.error) { showToast('报名失败：'+(ins.error.message||'错误'), 'error'); return; }
+            if (ins && ins.data) { signups.unshift(ins.data); }
+            
+            closeSignupModal();
+            renderActivitiesOptimized();
+            showToast('报名成功！');
+        }
+        
+        // 显示统计
+        function showStats(activityId) {
+            currentActivityId = activityId;
+            const activity = activities.find(a => a.id === activityId);
+            const activitySignups = signups.filter(s => s.activityId === activityId);
+            
+            // 按部门统计
+            const deptStats = {};
+            activitySignups.forEach(signup => {
+                if (!deptStats[signup.department]) {
+                    deptStats[signup.department] = [];
+                }
+                deptStats[signup.department].push(signup);
+            });
+            
+            // 准备饼图数据
+            const departmentCounts = {};
+            Object.entries(deptStats).forEach(([dept, users]) => {
+                departmentCounts[dept] = users.length;
+            });
+            
+            const statsContent = document.getElementById('statsContent');
+            statsContent.innerHTML = `
+                <div class="space-y-6">
+                    <!-- 活动基本信息 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-xl font-bold mb-2">${activity.title}</h3>
+                        <div class="text-gray-300">
+                            <p><i class="fa fa-building mr-2"></i>${activity.organizer}</p>
+                            <p><i class="fa fa-calendar mr-2"></i>${formatDateTime(activity.time || activity.createdAt)}</p>
+                            <p><i class="fa fa-map-marker mr-2"></i>${activity.location}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计概览 -->
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-primary">${activitySignups.length}</div>
+                            <div class="text-gray-300">总报名人数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-green-400">${Object.keys(deptStats).length}</div>
+                            <div class="text-gray-300">参与部门数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-yellow-400">${activitySignups.filter(s => s.department.startsWith('现代')).length}</div>
+                            <div class="text-gray-300">现代院人数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-blue-400">${activitySignups.filter(s => s.department === '检测站').length}</div>
+                            <div class="text-gray-300">检测站人数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-purple-400">${activitySignups.filter(s => s.department === '房科院').length}</div>
+                            <div class="text-gray-300">房科院人数</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 饼图分析 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="p-4 rounded-lg bg-white/5">
+                            <h3 class="text-lg font-bold mb-4">各部门报名分布</h3>
+                            <div class="relative" style="height: 300px;">
+                                <canvas id="pieChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 rounded-lg bg-white/5">
+                            <h3 class="text-lg font-bold mb-4">报名详情列表</h3>
+                            <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
+                                ${Object.entries(deptStats).map(([dept, users]) => `
+                                    <div class="p-3 rounded-lg bg-white/5">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h4 class="font-bold text-sm">${dept}</h4>
+                                            <span class="px-2 py-1 rounded-full text-xs bg-primary/20 text-primary">${users.length}人</span>
+                                        </div>
+                                        <div class="text-gray-300 text-xs space-y-1">
+                                            ${users.map(user => `
+                                                <div class="flex justify-between">
+                                                    <span>${user.name}</span>
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="text-gray-400">${formatDateTime(user.signupTime)}</span>
+                                                        <button onclick="editSignup('${user.id}')" class="px-2 py-1 text-xs rounded bg-red-500/80 hover:bg-red-500 transition-colors">
+                                                            <i class="fa fa-edit mr-1"></i>修改
+                                                        </button>
+                                                        <button onclick="deleteSignup('${user.id}')" class="px-2 py-1 text-xs rounded bg-gray-500/80 hover:bg-gray-500 transition-colors">
+                                                            <i class="fa fa-trash mr-1"></i>删除
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button onclick="exportSignups()" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-download mr-2"></i>导出签到表
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('statsModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // 渲染饼图
+            renderPieChart(departmentCounts);
+        }
+        
+        // 动态生成色系配色（根据数据项数量）
+        function generateColorScheme(count, baseHue = 210) {
+            const colors = [];
+            const saturation = 70; // 饱和度
+            for (let i = 0; i < count; i++) {
+                // 通过调整亮度产生同色系的深浅变化
+                const lightness = 85 - (i * 15); // 从浅到深：85%, 70%, 55%, 40%
+                const alpha = 0.85 - (i * 0.1); // 透明度递减
+                colors.push(`hsla(${baseHue}, ${saturation}%, ${lightness}%, ${alpha})`);
+            }
+            return colors;
+        }
+        
+        // 根据活动ID生成不同的基准色系
+        function getBaseHueForActivity(activityId) {
+            const hues = [
+                210, // 蓝色系
+                280, // 紫色系
+                340, // 粉色系
+                160, // 青色系
+                50   // 黄色系
+            ];
+            // 使用活动ID的哈希值选择色系
+            const hash = activityId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            return hues[hash % hues.length];
+        }
+        
+        // 渲染饼图 - 优化配色和动效
+        function renderPieChart(departmentCounts) {
+            const ctx = document.getElementById('pieChart').getContext('2d');
+            
+            // 销毁已存在的图表实例
+            if (pieChartInstance) {
+                pieChartInstance.destroy()
+            }
+            
+            // 生成动态配色（同色系深浅变化）
+            const baseHue = getBaseHueForActivity(currentActivityId);
+            const colors = generateColorScheme(Object.keys(departmentCounts).length, baseHue);
+            
+            // 为每个颜色生成对应的高亮色（鼠标悬停时使用）
+            const hoverColors = colors.map(color => {
+                const match = color.match(/hsla\((\d+),\s*(\d+)%,\s*(\d+)%,\s*([d.]+)\)/);
+                if (match) {
+                    const [, h, s, l, a] = match;
+                    return `hsla(${h}, ${s}%, ${Math.min(parseInt(l) + 10, 95)}%, ${Math.min(parseFloat(a) + 0.1, 1)})`;
+                }
+                return color;
+            });
+            
+            pieChartInstance = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(departmentCounts),
+                    datasets: [{
+                        data: Object.values(departmentCounts),
+                        backgroundColor: colors,
+                        hoverBackgroundColor: hoverColors,
+                        borderColor: 'rgba(255, 255, 255, 0.95)',
+                        hoverBorderColor: 'rgba(255, 255, 255, 1)',
+                        borderWidth: 2,
+                        hoverBorderWidth: 3,
+                        borderRadius: 8,
+                        hoverOffset: 15
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#ffffff',
+                                padding: 20,
+                                font: {
+                                    size: 13,
+                                    family: "'Microsoft YaHei', Arial, sans-serif",
+                                    weight: '500'
+                                },
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 12,
+                                boxHeight: 12
+                            },
+                            onHover: (event, legendItem, legend) => {
+                                event.native.target.style.cursor = 'pointer';
+                            },
+                            onLeave: (event, legendItem, legend) => {
+                                event.native.target.style.cursor = 'default';
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                            titleColor: '#ffffff',
+                            bodyColor: '#e2e8f0',
+                            borderColor: 'rgba(255, 255, 255, 0.2)',
+                            borderWidth: 1,
+                            cornerRadius: 8,
+                            padding: 12,
+                            displayColors: true,
+                            boxPadding: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value}人 (${percentage}%)`;
+                                },
+                                labelTextColor: function(context) {
+                                    return '#ffffff';
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: false,
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    },
+                    hover: {
+                        animationDuration: 0
+                    },
+                    onHover: (event, activeElements) => {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+                    },
+                    layout: {
+                        padding: {
+                            top: 20,
+                            bottom: 20,
+                            left: 20,
+                            right: 20
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 关闭统计模态框
+        function closeStatsModal() {
+            document.getElementById('statsModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            currentActivityId = null;
+            if (pieChartInstance) {
+                pieChartInstance.destroy();
+                pieChartInstance = null;
+            }
+        }
+        
+        // 导出签到表（使用SheetJS生成Word文件）
+        function exportSignups() {
+            const activity = activities.find(a => a.id === currentActivityId);
+            const activitySignups = signups.filter(s => s.activityId === currentActivityId);
+            
+            // 构造表格数据
+            const data = [
+                // 标题行
+                ['活动主题', '', ''],
+                [activity.title, '', ''],
+                [''],
+                ['活动地点', activity.location || '', ''],
+                ['活动时间', formatDateTime(activity.time || activity.createdAt), ''],
+                ['主办单位', activity.organizer, ''],
+                [''],
+                // 表头
+                ['序号', '部门', '姓名', '签字栏'],
+            ];
+            
+            // 添加报名人员数据
+            activitySignups.forEach((signup, index) => {
+                data.push([
+                    index + 1,
+                    signup.department,
+                    signup.name,
+                    ''
+                ]);
+            });
+            
+            // 创建工作表
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // 设置列宽
+            ws['!cols'] = [
+                { wch: 8 },  // 序号列宽
+                { wch: 25 }, // 部门列宽
+                { wch: 15 }, // 姓名列宽
+                { wch: 20 }  // 签到栏列宽
+            ];
+            
+            // 合并单元格（标题行）
+            ws['!merges'] = [
+                // 合并活动主题行
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+                // 合并活动地点行
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } },
+                // 合并活动时间行
+                { s: { r: 4, c: 0 }, e: { r: 4, c: 2 } },
+                // 合并主办单位行
+                { s: { r: 5, c: 0 }, e: { r: 5, c: 2 } }
+            ];
+            
+            // 设置单元格样式（居中对齐、加粗等）
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellRef = XLSX.utils.encode_cell({r: R, c: C});
+                    if (!ws[cellRef]) continue;
+                    
+                    // 设置标题行样式
+                    if (R <= 1) {
+                        ws[cellRef].s = {
+                            font: { bold: true, sz: 16 },
+                            alignment: { horizontal: 'center', vertical: 'center' }
+                        };
+                    }
+                    // 设置表头样式
+                    else if (R === 7) {
+                        ws[cellRef].s = {
+                            font: { bold: true },
+                            alignment: { horizontal: 'center', vertical: 'center' },
+                            fill: { fgColor: { rgb: 'FFE6E6E6' } }
+                        };
+                    }
+                    // 设置数据行样式
+                    else {
+                        ws[cellRef].s = {
+                            alignment: { horizontal: 'center', vertical: 'center' }
+                        };
+                    }
+                }
+            }
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "签到表");
+            
+            // 生成文件名
+            const fileName = `${activity.title}_签到表_${new Date().toISOString().split('T')[0]}.xlsx`;
+            
+            // 下载文件
+            XLSX.writeFile(wb, fileName);
+            
+            showToast('签到表导出成功！');
+        }
+        
+        // 删除报名
+        function deleteSignup(signupId) {
+            if (!confirm('确定要删除这条报名记录吗？')) return;
+            
+            const index = signups.findIndex(s => s.id === signupId);
+            if (index !== -1) {
+                signups.splice(index, 1);
+                localStorage.setItem('signups', JSON.stringify(signups));
+                showStats(currentActivityId);
+                showToast('报名删除成功！');
+            }
+        }
+        
+        // 编辑报名
+        function editSignup(signupId) {
+            const signup = signups.find(s => s.id === signupId);
+            if (!signup) return;
+            
+            const newDepartment = prompt('请输入新的部门：', signup.department);
+            if (!newDepartment) return;
+            
+            const newName = prompt('请输入新的姓名：', signup.name);
+            if (!newName) return;
+            
+            signup.department = newDepartment;
+            signup.name = newName;
+            
+            localStorage.setItem('signups', JSON.stringify(signups));
+            showStats(currentActivityId);
+            showToast('报名信息修改成功！');
+        }
+        
+        // 格式化日期时间 - 增强兼容性
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '未设置';
+            
+            // 兼容多种格式：datetime-local格式(2025-12-15T14:00) 和 带空格格式(2025-12-15 14:00)
+            let date;
+            if (typeof dateTimeStr === 'string') {
+                // 将 'T' 替换为空格以统一格式
+                const normalizedStr = dateTimeStr.replace('T', ' ');
+                date = new Date(normalizedStr);
+            } else {
+                date = new Date(dateTimeStr);
+            }
+            
+            // 检查日期是否有效
+            if (isNaN(date.getTime())) {
+                console.error('Invalid date:', dateTimeStr);
+                return '无效日期';
+            }
+            
+            const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            const weekDay = weekDays[date.getDay()];
+            
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${weekDay} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-6 py-3 rounded-lg z-50 transition-all transform translate-x-full opacity-0`;
+            
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        // 页面可见性监听，当页面重新可见时刷新数据
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                console.log('[Data Sync] Page became visible, refreshing activities...');
+                initActivities();
+                renderActivitiesOptimized();
+            }
+        });
+
+        // 监听活动更新事件（从 activity_management.html 触发）
+        window.addEventListener('activitiesUpdated', function(event) {
+            console.log('[Data Sync] Received activitiesUpdated event, refreshing...');
+            
+            // 显示更新提示
+            const updateNotice = document.createElement('div');
+            updateNotice.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-green-500 text-white rounded-lg z-50 transition-all';
+            updateNotice.textContent = '活动数据已更新！';
+            document.body.appendChild(updateNotice);
+            
+            setTimeout(() => {
+                updateNotice.remove()
+            }, 3000);
+            
+            // 清除缓存并重新加载数据
+            activitiesCache = null;
+            signupsCache = null;
+            lastLoadTime = 0;
+            initActivities();
+            renderActivitiesOptimized();
+        });
+
+        // 监听来自其他窗口的存储事件（同一标签页的数据更新）
+        window.addEventListener('storage', function(event) {
+            if (event.key === 'activities') {
+                console.log('[Data Sync] Storage event detected for activities, refreshing...');
+                activitiesCache = null;
+                lastLoadTime = 0;
+                initActivities();
+                renderActivitiesOptimized();
+                
+                // 显示更新提示
+                const updateNotice = document.createElement('div');
+                updateNotice.className = 'fixed top-20 left-1/2 transform -translate-x-1/2 px-6 py-3 bg-blue-500 text-white rounded-lg z-50 transition-all';
+                updateNotice.textContent = '检测到活动数据更新！';
+                document.body.appendChild(updateNotice);
+                
+                setTimeout(() => {
+                    updateNotice.remove()
+                }, 3000);
+            }
+            
+            if (event.key === 'signups') {
+                console.log('[Data Sync] Storage event detected for signups, refreshing...');
+                signupsCache = null;
+                initActivities();
+                renderActivitiesOptimized();
+            }
+        });
+
+        // 定期检查数据更新（每30秒）
+        setInterval(function() {
+            const currentActivities = JSON.parse(localStorage.getItem('activities') || '[]');
+            const currentSignups = JSON.parse(localStorage.getItem('signups') || '[]');
+            
+            // 检查活动数据是否有变化
+            if (activitiesCache && JSON.stringify(currentActivities) !== JSON.stringify(activitiesCache)) {
+                console.log('[Data Sync] Periodic check detected activities change');
+                activitiesCache = null;
+                lastLoadTime = 0;
+                initActivities();
+                renderActivitiesOptimized();
+            }
+            
+            // 检查报名数据是否有变化
+            if (signupsCache && JSON.stringify(currentSignups) !== JSON.stringify(signupsCache)) {
+                console.log('[Data Sync] Periodic check detected signups change');
+                signupsCache = null;
+                initActivities();
+                renderActivitiesOptimized();
+            }
+        }, 30000); // 30秒检查一次
+    </script>
+</body>
+</html>

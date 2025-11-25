@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>城市更新事业部——技术质量管理平台 - By HAISNAP</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="assets/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/supabase.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        dark: {
+                            100: '#1e293b',
+                            200: '#0f172a',
+                            300: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* 玻璃拟态样式 */
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            .glass-hover {
+                transition: all 0.3s ease;
+            }
+            .glass-hover:hover {
+                background: rgba(255, 255, 255, 0.25);
+                transform: scale(1.05);
+            }
+            
+            /* 新拟态样式 */
+            .neumorphic {
+                background: #1e293b;
+                box-shadow: 8px 8px 16px #0f172a, 
+                           -8px -8px 16px #2d3b4e;
+            }
+            .neumorphic-inset {
+                background: #1e293b;
+                box-shadow: inset 8px 8px 16px #0f172a, 
+                           inset -8px -8px 16px #2d3b4e;
+            }
+            .neumorphic-hover {
+                transition: all 0.3s ease;
+            }
+            .neumorphic-hover:hover {
+                box-shadow: 12px 12px 20px #0f172a, 
+                           -12px -12px 20px #2d3b4e;
+                transform: scale(1.05);
+            }
+            
+            /* 背景blob */
+            .blob {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(80px);
+                opacity: 0.2;
+                z-index: -1;
+            }
+            
+            /* 自定义滚动条 */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+            .theme-light .glass { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+            .theme-light .glass-hover:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+            .theme-light .blob { opacity: 0.12; filter: blur(80px); }
+            .theme-light select { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+            .theme-light select option { background-color: #ffffff !important; color: #0f172a !important; }
+            .theme-light .text-gray-300 { color: #374151 !important; }
+            .theme-light .text-gray-400 { color: #4b5563 !important; }
+            .animated-gradient { background: linear-gradient(135deg, #ffffff, #f6fafe, #e0f2fe, #ffffff); background-size: 400% 400%; }
+            @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+            .animated-gradient { animation: gradientShift 20s ease infinite; }
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white custom-scrollbar">
+    <!-- 背景blob -->
+    <div class="blob bg-blue-500 w-96 h-96 top-0 left-0 animate-blob"></div>
+    <div class="blob bg-purple-500 w-96 h-96 bottom-0 right-0 animate-blob" style="animation-delay: -10s;"></div>
+    <div class="blob bg-pink-500 w-96 h-96 top-1/2 right-1/4 animate-blob" style="animation-delay: -5s;"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-50 glass px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-building-o text-2xl text-primary"></i>
+                <h1 class="text-xl font-bold">城市更新事业部技术质量管理平台</h1>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- 登录/注册按钮 -->
+                <div class="hidden md:flex items-center space-x-4">
+                    <button id="loginBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-sign-in mr-2"></i>登录
+                    </button>
+                    <button id="registerBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-user-plus mr-2"></i>注册
+                    </button>
+                </div>
+                <span id="sessionStatus" class="hidden md:inline-block px-3 py-1 rounded-full text-sm bg-red-500">未登录</span>
+                <button id="grantMeSuperAdmin" class="hidden md:inline-block px-3 py-1 rounded-lg glass hover:bg-white/20 transition-all">设为超级管理员</button>
+                <button id="themeToggle" class="p-2 rounded-full glass hover:bg-white/20 transition-all" title="切换主题">
+                    <i id="themeIcon" class="fa fa-moon-o"></i>
+                </button>
+                
+                <!-- 移动端菜单按钮 -->
+                <button id="mobileMenuBtn" class="md:hidden p-2 rounded-full glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- 移动端菜单 -->
+    <div id="mobileMenu" class="fixed inset-0 z-40 hidden">
+        <div class="absolute inset-0 bg-black/50" id="mobileMenuOverlay"></div>
+        <div class="absolute right-0 top-0 h-full w-64 glass p-6 transform transition-transform">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-xl font-bold">菜单</h2>
+                <button id="closeMenuBtn" class="p-2 rounded-full hover:bg-white/20">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="flex flex-col space-y-4">
+                <button id="mobileLoginBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-sign-in mr-2"></i>登录
+                </button>
+                <button id="mobileRegisterBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-user-plus mr-2"></i>注册
+                </button>
+                
+                <hr class="my-4 border-white/20">
+                
+                <a href="#companies" class="px-4 py-2 rounded-lg hover:bg-white/20 transition-all">
+                    <i class="fa fa-building mr-2"></i>子公司入口
+                </a>
+                <a href="#common" class="px-4 py-2 rounded-lg hover:bg-white/20 transition-all">
+                    <i class="fa fa-users mr-2"></i>公用板块
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 欢迎区域 -->
+        <section class="mb-16 text-center">
+            <p class="text-2xl font-bold mb-2">华建集团</p>
+            <h2 class="text-4xl font-bold mb-4">城市更新事业部 技术质量管理平台</h2>
+            <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+提供科研课题、培训活动、评优报奖等一站式技术质量管理服务
+            </p>
+        </section>
+        
+        <!-- 子公司入口 -->
+        <section id="companies" class="mb-16">
+            <h2 class="text-2xl font-bold mb-8 flex items-center">
+                <i class="fa fa-building mr-3 text-primary"></i>
+                各公司入口
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 现代设计院 -->
+                <div class="glass glass-hover rounded-2xl p-6 h-full">
+                    <div class="flex items-center mb-4">
+                        <div class="w-16 h-16 rounded-full glass flex items-center justify-center text-2xl mr-4">
+                            <i class="fa fa-pencil-square-o"></i>
+                        </div>
+                        <h3 class="text-xl font-bold" style="font-size: 36px;">现代院</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <button class="w-full mb-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all active:scale-95 glass-hover">
+                            <i class="fa fa-cogs mr-2"></i>现代院技术管理入口
+                        </button>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-star mr-2"></i>评优登记
+                        </a>
+                        <a href="awardindex.html" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-trophy mr-2"></i>报奖登记
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-check-square-o mr-2"></i>质量检查
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-file-text-o mr-2"></i>论文/软著/专利
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- 检测站 -->
+                <div class="glass glass-hover rounded-2xl p-6 h-full">
+                    <div class="flex items-center mb-4">
+                        <div class="w-16 h-16 rounded-full glass flex items-center justify-center text-2xl mr-4">
+                            <i class="fa fa-flask"></i>
+                        </div>
+                        <h3 class="text-xl font-bold" style="font-size: 36px;">检测站</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <button class="w-full mb-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all active:scale-95 glass-hover">
+                            <i class="fa fa-cogs mr-2"></i>检测站技术管理入口
+                        </button>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-star mr-2"></i>评优登记
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-trophy mr-2"></i>报奖登记
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-check-square-o mr-2"></i>质量检查
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-file-text-o mr-2"></i>论文/软著/专利
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- 房科院 -->
+                <div class="glass glass-hover rounded-2xl p-6 h-full">
+                    <div class="flex items-center mb-4">
+                        <div class="w-16 h-16 rounded-full glass flex items-center justify-center text-2xl mr-4">
+                            <i class="fa fa-home"></i>
+                        </div>
+                        <h3 class="text-xl font-bold" style="font-size: 36px;">房科院</h3>
+                    </div>
+                    <div class="space-y-3">
+                        <button class="w-full mb-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all active:scale-95 glass-hover">
+                            <i class="fa fa-cogs mr-2"></i>房科院技术管理入口
+                        </button>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-star mr-2"></i>评优登记
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-trophy mr-2"></i>报奖登记
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-check-square-o mr-2"></i>质量检查
+                        </a>
+                        <a href="#" class="block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-file-text-o mr-2"></i>论文/软著/专利
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 公用板块 -->
+        <section id="common" class="mb-16">
+            <h2 class="text-2xl font-bold mb-8 flex items-center">
+                <i class="fa fa-users mr-3 text-primary"></i>
+                公用板块
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- 科研看板 -->
+                <div class="glass glass-hover rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3">
+                            <i class="fa fa-lightbulb-o"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">科研看板</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">查看和查询科研课题项目</p>
+                    <a href="research.html" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-search mr-2"></i>查看看板
+                    </a>
+                </div>
+                
+                <!-- 培训报名 -->
+                <div class="glass glass-hover rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3">
+                            <i class="fa fa-graduation-cap"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">培训报名</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">浏览和报名参加培训课程</p>
+                    <a href="activityindex.html" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-calendar-plus-o mr-2"></i>立即报名
+                    </a>
+                </div>
+                
+                <!-- 活动报名 -->
+                <div class="glass glass-hover rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3">
+                            <i class="fa fa-calendar"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">活动报名</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">查看和报名参加各类活动</p>
+                    <a href="#" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-calendar-check-o mr-2"></i>查看活动
+                    </a>
+                </div>
+                
+                <!-- 集团外部活动 -->
+                <div class="glass glass-hover rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3">
+                            <i class="fa fa-globe"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">集团外部活动</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">查看集团和外部活动公告</p>
+                    <a href="announcements.html" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-bullhorn mr-2"></i>查看公告
+                    </a>
+                </div>
+                
+                <!-- 评价体系 -->
+                <div class="glass glass-hover rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3">
+                            <i class="fa fa-line-chart"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">评价体系</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">查看技术质量管理评价体系</p>
+                    <a href="#" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-bar-chart mr-2"></i>查看详情
+                    </a>
+                </div>
+                
+                <!-- 原创联盟 -->
+                <div class="glass glass-hover rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3">
+                            <i class="fa fa-copyright"></i>
+                        </div>
+                        <h3 class="text-xl font-bold">原创联盟</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">查看原创技术联盟动态</p>
+                    <a href="#" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-eye mr-2"></i>查看详情
+                    </a>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 最新动态 -->
+        <section class="mb-16">
+            <h2 class="text-2xl font-bold mb-8 flex items-center">
+                <i class="fa fa-newspaper-o mr-3 text-primary"></i>
+                最新动态
+            </h2>
+            
+            <div class="glass rounded-2xl p-6">
+                <div class="space-y-6">
+                    <!-- 动态项 1 -->
+                    <div class="border-b border-white/20 pb-6">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xl font-bold">2025年度科研课题申报工作启动</h3>
+                            <span class="text-sm text-gray-400">2025-07-15</span>
+                        </div>
+                        <p class="text-gray-300 mb-4">
+                            2025年度科研课题申报工作已正式启动，请各部门积极组织申报，截止日期为2025年9月30日。
+                        </p>
+                        <a href="#" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-file-text-o mr-2"></i>查看详情
+                        </a>
+                    </div>
+                    
+                    <!-- 动态项 2 -->
+                    <div class="border-b border-white/20 pb-6">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xl font-bold">关于举办"城市更新技术创新"培训的通知</h3>
+                            <span class="text-sm text-gray-400">2025-07-10</span>
+                        </div>
+                        <p class="text-gray-300 mb-4">
+                            为提升员工城市更新技术创新能力，特举办专题培训，邀请行业专家进行授课，欢迎报名参加。
+                        </p>
+                        <a href="#" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-calendar-plus-o mr-2"></i>立即报名
+                        </a>
+                    </div>
+                    
+                    <!-- 动态项 3 -->
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-xl font-bold">2024年度优秀科研成果评选结果公布</h3>
+                            <span class="text-sm text-gray-400">2025-07-05</span>
+                        </div>
+                        <p class="text-gray-300 mb-4">
+                            2024年度优秀科研成果评选工作已完成，共评选出一等奖3项，二等奖5项，三等奖8项，现予以公布。
+                        </p>
+                        <a href="#" class="inline-block px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-trophy mr-2"></i>查看结果
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="homeAnnouncements" class="mb-16">
+            <h2 class="text-2xl font-bold mb-8 flex items-center">
+                <i class="fa fa-bullhorn mr-3 text-primary"></i>
+                最新公告
+            </h2>
+            <div id="homeAnnouncementsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </section>
+
+        <section id="admin" class="mb-16">
+            <h2 class="text-2xl font-bold mb-8 flex items-center">
+                <i class="fa fa-cogs mr-3 text-primary"></i>
+                管理中心
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3"><i class="fa fa-users"></i></div>
+                        <h3 class="text-xl font-bold">用户管理</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">查看、冻结、重置密码</p>
+                    <button id="openUsersAdmin" class="px-4 py-2 rounded-lg glass" data-permission="users:manage">打开</button>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3"><i class="fa fa-id-badge"></i></div>
+                        <h3 class="text-xl font-bold">角色管理</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">审批与分配角色</p>
+                    <button id="openRolesAdmin" class="px-4 py-2 rounded-lg glass" data-permission="roles:manage">打开</button>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="w-12 h-12 rounded-full glass flex items-center justify-center text-xl mr-3"><i class="fa fa-bullhorn"></i></div>
+                        <h3 class="text-xl font-bold">系统公告</h3>
+                    </div>
+                    <p class="text-gray-300 mb-4">发布公告与附件</p>
+                    <button id="openAnnouncementsAdmin" class="px-4 py-2 rounded-lg glass" data-permission="announcements:create">打开</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 页脚 -->
+    <footer class="glass py-8">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4">关于我们</h3>
+                    <p class="text-gray-300">
+                        华建集团城市更新事业部技术质量管理平台，为三个子公司提供一站式技术管理服务。
+                    </p>
+                </div>
+                
+                <div>
+                    <h3 class="text-xl font-bold mb-4">联系方式</h3>
+                    <ul class="space-y-2 text-gray-300">
+                        <li><i class="fa fa-envelope mr-2"></i> contact@example.com</li>
+                        <li><i class="fa fa-phone mr-2"></i> 021-12345678</li>
+                        <li><i class="fa fa-map-marker mr-2"></i> 上海市黄浦区南京东路123号</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-xl font-bold mb-4">快速链接</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <a href="#" class="text-gray-300 hover:text-white transition-colors">
+                            <i class="fa fa-angle-right mr-1"></i> 科研看板
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white transition-colors">
+                            <i class="fa fa-angle-right mr-1"></i> 培训报名
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white transition-colors">
+                            <i class="fa fa-angle-right mr-1"></i> 活动报名
+                        </a>
+                        <a href="#" class="text-gray-300 hover:text-white transition-colors">
+                            <i class="fa fa-angle-right mr-1"></i> 评价体系
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t border-white/20 mt-8 pt-6 text-center text-gray-400">
+                <p>© 2025 城更事业部技术质量管理平台. 保留所有权利.</p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- 登录模态框 -->
+    <div id="loginModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="loginOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">用户登录</h2>
+                    <button id="closeLoginBtn" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="loginForm" class="space-y-6">
+                    <div>
+                        <label for="email" class="block mb-2">邮箱</label>
+                        <input type="email" id="email" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请输入邮箱">
+                    </div>
+                    
+                    <div>
+                        <label for="password" class="block mb-2">密码</label>
+                        <input type="password" id="password" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请输入密码">
+                    </div>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="remember" class="mr-2">
+                            <label for="remember">记住我</label>
+                        </div>
+                        <a href="#" class="text-primary hover:underline">忘记密码？</a>
+                    </div>
+                    
+                    <button type="submit" class="w-full py-3 rounded-lg bg-primary hover:bg-primary/80 transition-all font-bold">
+                        登录
+                    </button>
+                    
+                    <div class="text-center">
+                        <span class="text-gray-400">还没有账号？</span>
+                        <button type="button" id="switchToRegister" class="text-primary hover:underline ml-1">立即注册</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 注册模态框 -->
+    <div id="registerModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="registerOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">用户注册</h2>
+                    <button id="closeRegisterBtn" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="registerForm" class="space-y-6">
+                    <div>
+                        <label for="regName" class="block mb-2">姓名</label>
+                        <input type="text" id="regName" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请输入真实姓名">
+                    </div>
+                    
+                    <div>
+                        <label for="regCompany" class="block mb-2">所属公司</label>
+                        <select id="regCompany" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">请选择公司</option>
+                            <option value="modern">现代设计院</option>
+                            <option value="test">检测站</option>
+                            <option value="research">房科院</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="regDepartment" class="block mb-2">部门</label>
+                        <input type="text" id="regDepartment" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请输入部门名称">
+                    </div>
+                    
+                    <div>
+                        <label for="regEmail" class="block mb-2">邮箱</label>
+                        <input type="email" id="regEmail" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请填写邮箱">
+                    </div>
+                    
+                    <div>
+                        <label for="regPassword" class="block mb-2">密码</label>
+                        <input type="password" id="regPassword" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请设置密码">
+                    </div>
+                    
+                    <div>
+                        <label for="regConfirmPassword" class="block mb-2">确认密码</label>
+                        <input type="password" id="regConfirmPassword" class="w-full px-4 py-3 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" placeholder="请再次输入密码">
+                    </div>
+                    
+                    <button type="submit" class="w-full py-3 rounded-lg bg-primary hover:bg-primary/80 transition-all font-bold">
+                        注册
+                    </button>
+                    
+                    <div class="text-center">
+                        <span class="text-gray-400">已有账号？</span>
+                        <button type="button" id="switchToLogin" class="text-primary hover:underline ml-1">立即登录</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="usersAdminModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="usersAdminOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">用户管理</h2>
+                    <button id="closeUsersAdmin" class="p-2 rounded-full hover:bg-white/20"><i class="fa fa-times"></i></button>
+                </div>
+                <div class="mb-3 flex gap-2">
+                    <input id="userSearch" class="flex-1 px-3 py-2 rounded-lg glass bg-white/5 border border-white/20" placeholder="搜索姓名/邮箱">
+                    <button id="refreshUsers" class="px-3 py-2 rounded-lg bg-primary text-white">刷新</button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    <table class="w-full text-left">
+                        <thead><tr><th class="p-2">姓名</th><th class="p-2">邮箱</th><th class="p-2">公司</th><th class="p-2">部门</th><th class="p-2">操作</th></tr></thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="rolesAdminModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="rolesAdminOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">角色管理</h2>
+                    <button id="closeRolesAdmin" class="p-2 rounded-full hover:bg-white/20"><i class="fa fa-times"></i></button>
+                </div>
+                <div class="mb-3 flex gap-2">
+                    <select id="roleSelect" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20"></select>
+                    <button id="refreshRoles" class="px-3 py-2 rounded-lg bg-primary text-white">刷新</button>
+                </div>
+                <div class="max-h-[60vh] overflow-y-auto custom-scrollbar">
+                    <table class="w-full text-left">
+                        <thead><tr><th class="p-2">姓名</th><th class="p-2">邮箱</th><th class="p-2">当前角色</th><th class="p-2">操作</th></tr></thead>
+                        <tbody id="rolesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="announcementsAdminModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="announcementsAdminOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold">系统公告</h2>
+                    <button id="closeAnnouncementsAdmin" class="p-2 rounded-full hover:bg-white/20"><i class="fa fa-times"></i></button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <input id="annTitle" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20" placeholder="标题">
+                    <input id="annDepartment" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20" placeholder="部门">
+                    <input id="annStart" type="date" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20">
+                    <input id="annEnd" type="date" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20">
+                    <input id="annCover" type="file" accept="image/*" class="rounded-lg">
+                    <input id="annFiles" type="file" multiple class="rounded-lg">
+                </div>
+                <textarea id="annDetail" rows="4" class="w-full px-3 py-2 rounded-lg glass bg-white/5 border border-white/20" placeholder="详情"></textarea>
+                <div class="mt-4 flex gap-2">
+                    <button id="createAnnouncementBtn" class="px-4 py-2 rounded-lg bg-primary text-white" data-permission="announcements:create">发布</button>
+                    <button id="refreshAnnouncements" class="px-4 py-2 rounded-lg glass">刷新</button>
+                </div>
+                <div class="mt-4 max-h-[50vh] overflow-y-auto custom-scrollbar">
+                    <div id="announcementsList" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        async function updateSessionStatus(){
+            var el = document.getElementById('sessionStatus'); if (!el) return;
+            try {
+                var gu = await Supa.client.auth.getUser(); var user = (gu && gu.data && gu.data.user) || null;
+                if (user){ el.textContent = '已登录：'+(user.email||user.id); el.classList.remove('bg-red-500'); el.classList.add('bg-green-500'); }
+                else { el.textContent = '未登录'; el.classList.remove('bg-green-500'); el.classList.add('bg-red-500'); }
+            } catch(e){ el.textContent = '未登录'; el.classList.remove('bg-green-500'); el.classList.add('bg-red-500'); }
+        }
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化数据
+            initData();
+            applyThemeFromStorage();
+            
+            // 移动端菜单功能
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            const closeMenuBtn = document.getElementById('closeMenuBtn');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+            
+            mobileMenuBtn.addEventListener('click', function() {
+                mobileMenu.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            function closeMobileMenu() {
+                mobileMenu.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeMenuBtn.addEventListener('click', closeMobileMenu);
+            mobileMenuOverlay.addEventListener('click', closeMobileMenu);
+            
+            // 登录模态框功能
+            const loginBtn = document.getElementById('loginBtn');
+            const mobileLoginBtn = document.getElementById('mobileLoginBtn');
+            const closeLoginBtn = document.getElementById('closeLoginBtn');
+            const loginModal = document.getElementById('loginModal');
+            const loginOverlay = document.getElementById('loginOverlay');
+            const loginForm = document.getElementById('loginForm');
+            
+            loginBtn.addEventListener('click', function() {
+                loginModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            mobileLoginBtn.addEventListener('click', function() {
+                closeMobileMenu();
+                loginModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            function closeLoginModal() {
+                loginModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeLoginBtn.addEventListener('click', closeLoginModal);
+            loginOverlay.addEventListener('click', closeLoginModal);
+            
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                if (!email || !password) { showToast('请输入有效的邮箱和密码', 'error'); return; }
+                try {
+                    var btn = loginForm.querySelector('button[type="submit"]'); if (btn) { btn.disabled = true; btn.textContent = '登录中…'; }
+                    var r = await Supa.client.auth.signInWithPassword({ email: email, password: password });
+                } catch(err){ showToast('网络或服务异常', 'error'); var btn2 = loginForm.querySelector('button[type="submit"]'); if (btn2) { btn2.disabled = false; btn2.textContent = '登录'; } return; }
+                if (!r.error) {
+                    var gu = await Supa.client.auth.getUser();
+                    var user = (gu && gu.data && gu.data.user) || null;
+                    if (user) {
+                        var meta = user.user_metadata || {};
+                        var name = meta.name || '';
+                        var company = meta.company || '';
+                        var department = meta.department || '';
+                        var ps = await Supa.client.from('profiles').select('id').eq('id', user.id).limit(1);
+                        var exists = Array.isArray(ps.data) && ps.data.length > 0;
+                        if (!exists) {
+                            await Supa.client.from('profiles').upsert({ id: user.id, email: user.email, name: name, company: company, department: department });
+                        }
+                    }
+                    closeLoginModal(); updateSessionStatus();
+                    showToast('登录成功！');
+                    var btn3 = loginForm.querySelector('button[type="submit"]'); if (btn3) { btn3.disabled = false; btn3.textContent = '登录'; }
+                } else { showToast('登录失败：'+(r.error.message||'错误'), 'error'); }
+            });
+            
+            // 注册模态框功能
+            const registerBtn = document.getElementById('registerBtn');
+            const mobileRegisterBtn = document.getElementById('mobileRegisterBtn');
+            const closeRegisterBtn = document.getElementById('closeRegisterBtn');
+            const registerModal = document.getElementById('registerModal');
+            const registerOverlay = document.getElementById('registerOverlay');
+            const registerForm = document.getElementById('registerForm');
+            
+            registerBtn.addEventListener('click', function() {
+                registerModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            mobileRegisterBtn.addEventListener('click', function() {
+                closeMobileMenu();
+                registerModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            function closeRegisterModal() {
+                registerModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeRegisterBtn.addEventListener('click', closeRegisterModal);
+            registerOverlay.addEventListener('click', closeRegisterModal);
+            
+            registerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const name = document.getElementById('regName').value;
+                const company = document.getElementById('regCompany').value;
+                const department = document.getElementById('regDepartment').value;
+                const email = document.getElementById('regEmail').value;
+                const password = document.getElementById('regPassword').value;
+                const confirmPassword = document.getElementById('regConfirmPassword').value;
+                if (window.Common) {
+                    const check = Common.validateRegister({ name, company, department, email, password, confirmPassword });
+                    if (!check.ok) { showToast(check.message, 'error'); return; }
+                }
+                
+                // 验证注册信息
+                if (!name || !company || !department || !email || !password) {
+                    showToast('请填写完整的注册信息！', 'error');
+                    return;
+                }
+                
+                if (password !== confirmPassword) {
+                    showToast('两次输入的密码不一致！', 'error');
+                    return;
+                }
+                
+                var s = await Supa.client.auth.signUp({ email: email, password: password, options: { data: { name: name, company: company, department: department } } });
+                if (!s.error) { closeRegisterModal(); showToast('注册成功！请登录'); } else { showToast('注册失败：'+(s.error.message||'错误'), 'error'); }
+            });
+            
+            // 切换登录/注册
+            const switchToRegister = document.getElementById('switchToRegister');
+            const switchToLogin = document.getElementById('switchToLogin');
+            
+            switchToRegister.addEventListener('click', function() {
+                closeLoginModal();
+                registerModal.classList.remove('hidden');
+            });
+            
+            switchToLogin.addEventListener('click', function() {
+                closeRegisterModal();
+                loginModal.classList.remove('hidden');
+            });
+            
+            // 平滑滚动
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if (targetElement) {
+                        window.scrollTo({
+                            top: targetElement.offsetTop - 80,
+                            behavior: 'smooth'
+                        });
+                        
+                        // 如果是移动端，点击后关闭菜单
+                        if (window.innerWidth < 768) {
+                            closeMobileMenu();
+                        }
+                    }
+                });
+            });
+
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const next = (localStorage.getItem('theme') === 'light') ? 'dark' : 'light';
+                    setTheme(next);
+                });
+            }
+
+            try { Common.initRBAC(); Common.guardUI(document); } catch(e){}
+            try { Supa.client.auth.onAuthStateChange(function(){ updateSessionStatus(); Common.guardUI(document); loadHomeAnnouncements(); }); } catch(e){}
+            updateSessionStatus();
+            loadHomeAnnouncements();
+
+            var openUsersAdmin = document.getElementById('openUsersAdmin');
+            var usersAdminModal = document.getElementById('usersAdminModal');
+            var usersAdminOverlay = document.getElementById('usersAdminOverlay');
+            var closeUsersAdmin = document.getElementById('closeUsersAdmin');
+            var refreshUsers = document.getElementById('refreshUsers');
+            var userSearch = document.getElementById('userSearch');
+            openUsersAdmin.addEventListener('click', function(){ usersAdminModal.classList.remove('hidden'); var tbody = document.getElementById('usersTableBody'); tbody.innerHTML = '<tr><td class="p-2 text-gray-400" colspan="5">加载中...</td></tr>'; loadUsers(); });
+            closeUsersAdmin.addEventListener('click', function(){ usersAdminModal.classList.add('hidden'); });
+            usersAdminOverlay.addEventListener('click', function(){ usersAdminModal.classList.add('hidden'); });
+            refreshUsers.addEventListener('click', loadUsers);
+            userSearch.addEventListener('input', function(){ loadUsers(this.value); });
+
+            var openRolesAdmin = document.getElementById('openRolesAdmin');
+            var rolesAdminModal = document.getElementById('rolesAdminModal');
+            var rolesAdminOverlay = document.getElementById('rolesAdminOverlay');
+            var closeRolesAdmin = document.getElementById('closeRolesAdmin');
+            var refreshRoles = document.getElementById('refreshRoles');
+            openRolesAdmin.addEventListener('click', function(){ rolesAdminModal.classList.remove('hidden'); var tbody = document.getElementById('rolesTableBody'); tbody.innerHTML = '<tr><td class="p-2 text-gray-400" colspan="4">加载中...</td></tr>'; loadRoles(); loadRoleUsers(); });
+            closeRolesAdmin.addEventListener('click', function(){ rolesAdminModal.classList.add('hidden'); });
+            rolesAdminOverlay.addEventListener('click', function(){ rolesAdminModal.classList.add('hidden'); });
+            refreshRoles.addEventListener('click', function(){ loadRoles(); loadRoleUsers(); });
+
+            var openAnnouncementsAdmin = document.getElementById('openAnnouncementsAdmin');
+            var announcementsAdminModal = document.getElementById('announcementsAdminModal');
+            var announcementsAdminOverlay = document.getElementById('announcementsAdminOverlay');
+            var closeAnnouncementsAdmin = document.getElementById('closeAnnouncementsAdmin');
+            var refreshAnnouncements = document.getElementById('refreshAnnouncements');
+            var createAnnouncementBtn = document.getElementById('createAnnouncementBtn');
+            openAnnouncementsAdmin.addEventListener('click', function(){ announcementsAdminModal.classList.remove('hidden'); var list = document.getElementById('announcementsList'); list.innerHTML = '<div class="p-3 text-gray-400">加载中...</div>'; loadAnnouncements(); });
+            closeAnnouncementsAdmin.addEventListener('click', function(){ announcementsAdminModal.classList.add('hidden'); });
+            announcementsAdminOverlay.addEventListener('click', function(){ announcementsAdminModal.classList.add('hidden'); });
+            refreshAnnouncements.addEventListener('click', loadAnnouncements);
+            createAnnouncementBtn.addEventListener('click', createAnnouncement);
+            var grantBtn = document.getElementById('grantMeSuperAdmin');
+            grantBtn.addEventListener('click', grantMeSuperAdmin);
+        });
+        
+        // 初始化数据
+        function initData() {
+            // 检查是否已有数据
+            if (!localStorage.getItem('users')) {
+                // 初始化用户数据
+                const users = [
+                    {
+                        id: '1',
+                        username: 'GJ001',
+                        password: 'GJ001',
+                        name: '超级管理员',
+                        company: 'admin',
+                        department: '管理部',
+                        role: 'superadmin'
+                    }
+                ];
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+            
+            // 初始化科研课题数据
+            if (!localStorage.getItem('researchTopics')) {
+                const researchTopics = [
+                    {
+                        id: '1',
+                        name: '城市更新中的历史建筑保护技术研究',
+                        unit: '现代设计院',
+                        level: '市级',
+                        category: '建筑设计',
+                        major: '历史建筑保护',
+                        department: '设计一部',
+                        leader: '张三',
+                        year: '2024',
+                        progress: '已中期',
+                        projectNo: 'XDSJ-2024-001',
+                        contractNo: 'HT-2024-001',
+                        results: '研究报告1份，论文2篇',
+                        funds: '50',
+                        basicFee: '20',
+                        cooperationFee: '10',
+                        softwareFee: '5',
+                        humanResourceFee: '10',
+                        otherFee: '5',
+                        startDate: '2024-01-01',
+                        endDate: '2025-12-31',
+                        extensionCount: '0',
+                        extendedEndDate: '',
+                        openingReviewDate: '2024-03-15',
+                        midtermReviewDate: '2024-12-20',
+                        finalReviewDate: '',
+                        remarks: ''
+                    },
+                    {
+                        id: '2',
+                        name: '既有建筑结构安全检测技术创新',
+                        unit: '检测站',
+                        level: '局级',
+                        category: '检测技术',
+                        major: '结构安全',
+                        department: '检测一室',
+                        leader: '李四',
+                        year: '2023',
+                        progress: '已结题',
+                        projectNo: 'JCZ-2023-005',
+                        contractNo: 'HT-2023-015',
+                        results: '研究报告1份，专利2项',
+                        funds: '30',
+                        basicFee: '15',
+                        cooperationFee: '5',
+                        softwareFee: '3',
+                        humanResourceFee: '5',
+                        otherFee: '2',
+                        startDate: '2023-03-01',
+                        endDate: '2024-06-30',
+                        extensionCount: '1',
+                        extendedEndDate: '2024-06-30',
+                        openingReviewDate: '2023-04-10',
+                        midtermReviewDate: '2023-11-15',
+                        finalReviewDate: '2024-07-10',
+                        remarks: '延期一次'
+                    },
+                    {
+                        id: '3',
+                        name: '绿色建筑材料在老旧小区改造中的应用研究',
+                        unit: '房科院',
+                        level: '省级',
+                        category: '材料研究',
+                        major: '绿色建筑',
+                        department: '材料研究所',
+                        leader: '王五',
+                        year: '2025',
+                        progress: '已立项',
+                        projectNo: 'FYKY-2025-002',
+                        contractNo: 'HT-2025-003',
+                        results: '',
+                        funds: '80',
+                        basicFee: '30',
+                        cooperationFee: '20',
+                        softwareFee: '10',
+                        humanResourceFee: '15',
+                        otherFee: '5',
+                        startDate: '2025-01-01',
+                        endDate: '2026-12-31',
+                        extensionCount: '0',
+                        extendedEndDate: '',
+                        openingReviewDate: '2025-03-20',
+                        midtermReviewDate: '',
+                        finalReviewDate: '',
+                        remarks: ''
+                    }
+                ];
+                localStorage.setItem('researchTopics', JSON.stringify(researchTopics));
+            }
+            
+            // 初始化培训活动数据
+            if (!localStorage.getItem('trainings')) {
+                const trainings = [
+                    {
+                        id: '1',
+                        name: '城市更新技术创新培训',
+                        organizer: '集团培训中心',
+                        date: '2025-08-15',
+                        location: '集团总部会议室',
+                        description: '邀请行业专家讲解城市更新最新技术与创新方法',
+                        status: '报名中'
+                    },
+                    {
+                        id: '2',
+                        name: 'BIM技术在建筑设计中的应用',
+                        organizer: '现代设计院',
+                        date: '2025-09-10',
+                        location: '现代设计院报告厅',
+                        description: '介绍BIM技术在建筑设计中的最新应用案例',
+                        status: '报名中'
+                    }
+                ];
+                localStorage.setItem('trainings', JSON.stringify(trainings));
+            }
+        }
+        
+        
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            // 创建提示元素
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-6 py-3 rounded-lg z-50 transition-all transform translate-x-full opacity-0`;
+            
+            // 根据类型设置样式
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            // 设置消息内容
+            toast.textContent = message;
+            
+            // 添加到页面
+            document.body.appendChild(toast);
+            
+            // 显示提示
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+            
+            // 3秒后隐藏提示
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                
+                // 动画结束后移除元素
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const body = document.body;
+            if (theme === 'light') {
+                html.classList.add('theme-light');
+                body.classList.remove('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                body.classList.add('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-sun-o'; }
+            } else {
+                html.classList.remove('theme-light');
+                body.classList.remove('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                body.classList.add('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-moon-o'; }
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function applyThemeFromStorage() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            setTheme(theme);
+        }
+
+        async function loadUsers(search){
+            var q = Supa.client.from('profiles').select('*').order('updated_at',{ascending:false});
+            if (search){ q = q.ilike('name','%'+search+'%'); }
+            var r = await q;
+            var rows = Array.isArray(r.data)? r.data : [];
+            var tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = rows.map(function(u){
+                var btnFreeze = '<button class="px-2 py-1 rounded bg-yellow-500/80 text-white mr-2" data-id="'+u.id+'" data-action="freeze">冻结</button>';
+                var btnReset = '<button class="px-2 py-1 rounded bg-blue-500/80 text-white" data-id="'+(u.email||'')+'" data-action="reset">重置密码</button>';
+                return '<tr><td class="p-2">'+(u.name||'')+'</td><td class="p-2">'+(u.email||'')+'</td><td class="p-2">'+(u.company||'')+'</td><td class="p-2">'+(u.department||'')+'</td><td class="p-2">'+btnFreeze+btnReset+'</td></tr>';
+            }).join('');
+            tbody.querySelectorAll('button').forEach(function(b){ b.addEventListener('click', onUserRowAction); });
+        }
+
+        async function onUserRowAction(e){
+            var action = e.currentTarget.getAttribute('data-action');
+            if (action === 'freeze'){
+                var uid = e.currentTarget.getAttribute('data-id');
+                await Supa.client.from('user_roles').upsert({ user_id: uid, role_code: 'user_frozen' });
+                showToast('已冻结用户');
+            } else if (action === 'reset'){
+                var email = e.currentTarget.getAttribute('data-id');
+                var r = await Supa.client.auth.resetPasswordForEmail(email);
+                if (!r.error) showToast('已发送重置邮件'); else showToast('发送失败：'+(r.error.message||'错误'),'error');
+            }
+        }
+
+        async function loadRoles(){
+            var sel = document.getElementById('roleSelect');
+            var fallback = [
+                { code:'super_admin', name:'超级管理员' },
+                { code:'org_admin', name:'子公司管理员' },
+                { code:'modern_admin', name:'现代院管理员' },
+                { code:'jcz_admin', name:'检测站管理员' },
+                { code:'fk_admin', name:'房科院管理员' },
+                { code:'user', name:'普通用户' },
+                { code:'user_frozen', name:'冻结用户' }
+            ];
+            try {
+                var r = await Supa.client.from('roles').select('code,name').order('code');
+                var rows = Array.isArray(r.data)? r.data : [];
+                var map = {}; fallback.forEach(function(x){ map[x.code]=x; }); rows.forEach(function(x){ map[x.code]=x; });
+                var list = Object.keys(map).map(function(k){ return map[k]; });
+                sel.innerHTML = list.map(function(role){ return '<option value="'+role.code+'">'+role.name+'</option>'; }).join('');
+            } catch(e){
+                sel.innerHTML = fallback.map(function(role){ return '<option value="'+role.code+'">'+role.name+'</option>'; }).join('');
+            }
+        }
+
+        async function loadRoleUsers(){
+            var ru = await Supa.client.from('profiles').select('id,name,email');
+            var ur = await Supa.client.from('user_roles').select('user_id, role_code');
+            var map = {}; (Array.isArray(ur.data)? ur.data:[]).forEach(function(x){ (map[x.user_id]=map[x.user_id]||[]).push(x.role_code); });
+            var tbody = document.getElementById('rolesTableBody');
+            var rows = Array.isArray(ru.data)? ru.data:[];
+            tbody.innerHTML = rows.map(function(u){
+                var roles = Array.from(new Set(map[u.id]||[])).join(',');
+                var assign = '<button class="px-2 py-1 rounded bg-green-500/80 text-white mr-2" data-id="'+u.id+'" data-action="assign">赋予</button>';
+                var revoke = '<button class="px-2 py-1 rounded bg-red-500/80 text-white" data-id="'+u.id+'" data-action="revoke">撤销</button>';
+                return '<tr><td class="p-2">'+(u.name||'')+'</td><td class="p-2">'+(u.email||'')+'</td><td class="p-2">'+roles+'</td><td class="p-2">'+assign+revoke+'</td></tr>';
+            }).join('');
+            tbody.querySelectorAll('button').forEach(function(b){ b.addEventListener('click', onRoleRowAction); });
+        }
+
+        async function onRoleRowAction(e){
+            var uid = e.currentTarget.getAttribute('data-id');
+            var action = e.currentTarget.getAttribute('data-action');
+            var sel = document.getElementById('roleSelect');
+            var role = sel.value;
+            if (action === 'assign'){
+                // 尝试赋予；若因外键/策略失败，提示具体原因
+                var resp = await Supa.client.from('user_roles').upsert({ user_id: uid, role_code: role });
+                if (resp.error){
+                    var msg = resp.error.message||'错误';
+                    if (/foreign key/i.test(msg) || /constraint/i.test(msg)) msg = '角色未在 roles 表中创建，请执行角色种子 SQL';
+                    if (/RLS|policy|permission|forbidden/i.test(msg)) msg = '没有权限分配角色，请为管理员账号开启 user_roles 插入/删除策略';
+                    showToast('赋予失败：'+msg, 'error');
+                } else { showToast('已赋予角色'); }
+            } else {
+                var del = await Supa.client.from('user_roles').delete().eq('user_id', uid).eq('role_code', role);
+                if (del.error){ showToast('撤销失败：'+(del.error.message||'错误'), 'error'); }
+                else { showToast('已撤销角色'); }
+            }
+            loadRoleUsers();
+        }
+
+        async function loadAnnouncements(){
+            var r = await Supa.client.from('announcements').select('*').order('created_at',{ascending:false});
+            var rows = Array.isArray(r.data)? r.data:[];
+            var list = document.getElementById('announcementsList');
+            list.innerHTML = rows.map(function(a){
+                var cover = a.cover_url || '';
+                return '<div class="p-3 rounded-lg glass"><div class="flex items-center gap-3"><img src="'+cover+'" class="w-20 h-14 object-cover rounded"/><div><div class="font-bold">'+(a.title||'')+'</div><div class="text-sm text-gray-300">'+(a.department||'')+'</div></div></div></div>';
+            }).join('');
+        }
+
+        async function loadHomeAnnouncements(){
+            try {
+                var r = await Supa.client.from('announcements').select('id,title,department,cover_url,start_date,end_date').order('created_at',{ascending:false}).limit(6);
+                var rows = Array.isArray(r.data)? r.data:[];
+                var container = document.getElementById('homeAnnouncementsList'); if (!container) return;
+                container.innerHTML = rows.map(function(a){
+                    var cover = a.cover_url || 'https://picsum.photos/800/600?random=' + (a.id||Date.now());
+                    var dates = [a.start_date||'', a.end_date||''].filter(Boolean).join(' 至 ');
+                    return '<div class="glass rounded-2xl overflow-hidden"><img src="'+cover+'" class="w-full h-40 object-cover"/><div class="p-4"><div class="flex justify-between items-start"><h3 class="text-lg font-bold">'+(a.title||'')+'</h3><span class="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">'+(a.department||'')+'</span></div><div class="text-gray-400 text-sm mt-1">'+dates+'</div><div class="mt-3"><a href="announcements.html" class="px-3 py-1 rounded glass hover:bg-white/20"><i class="fa fa-eye mr-1"></i>查看详情</a></div></div></div>';
+                }).join('');
+            } catch(e) {
+                var container = document.getElementById('homeAnnouncementsList'); if (container) container.innerHTML = '<div class="text-gray-400">加载公告失败</div>';
+            }
+        }
+
+        function sanitizeName(name){
+            return (name||'').replace(/[^a-zA-Z0-9._-]/g, '_');
+        }
+
+        async function createAnnouncement(){
+            var gu = await Supa.client.auth.getUser(); var user = (gu&&gu.data&&gu.data.user)||null; if(!user){ showToast('请先登录','error'); return; }
+            var pr = await Supa.client.from('profiles').select('org_id').eq('id', user.id).single(); var orgId = pr&&pr.data&&pr.data.org_id; if (!orgId){ showToast('未设置组织归属','error'); return; }
+            var title = document.getElementById('annTitle').value; var department = document.getElementById('annDepartment').value; var start = document.getElementById('annStart').value; var end = document.getElementById('annEnd').value; var detail = document.getElementById('annDetail').value;
+            var coverInput = document.getElementById('annCover'); var filesInput = document.getElementById('annFiles');
+            var bucket = Supa.client.storage.from('public-assets');
+            var coverUrl = '';
+            var btn = document.getElementById('createAnnouncementBtn'); if (btn){ btn.disabled = true; btn.textContent = '发布中…'; }
+            try {
+                if (coverInput.files && coverInput.files[0]){
+                    var cfile = coverInput.files[0]; var cpath = 'announcements/'+user.id+'/'+Date.now()+'_'+sanitizeName(cfile.name); var cu = await bucket.upload(cpath, cfile, { upsert: true, contentType: cfile.type || 'application/octet-stream' }); if (cu.error){ showToast('封面上传失败：'+(cu.error.message||'错误'),'error'); return; } coverUrl = bucket.getPublicUrl(cpath).data.publicUrl;
+                }
+                var attachments = [];
+                if (filesInput.files && filesInput.files.length){
+                    var files = Array.from(filesInput.files);
+                    var results = await Promise.all(files.map(async function(f){ var path = 'announcements/'+user.id+'/'+Date.now()+'_'+sanitizeName(f.name); var up = await bucket.upload(path, f, { upsert: true, contentType: f.type || 'application/octet-stream' }); if (up.error) throw new Error('附件上传失败：'+(up.error.message||'错误')); var url = bucket.getPublicUrl(path).data.publicUrl; return { name: f.name, type: f.type, url: url }; }));
+                    attachments = results;
+                }
+                var ins = await Supa.client.from('announcements').insert({ title: title, department: department, start_date: start, end_date: end, detail: detail, attachments: attachments, cover_url: coverUrl, org_id: orgId, created_by: user.id }).select('*').single();
+                if (ins.error){ showToast('发布失败：'+(ins.error.message||'错误'),'error'); return; }
+                showToast('发布成功');
+                document.getElementById('annTitle').value=''; document.getElementById('annDepartment').value=''; document.getElementById('annStart').value=''; document.getElementById('annEnd').value=''; document.getElementById('annDetail').value=''; coverInput.value=''; filesInput.value='';
+                loadAnnouncements(); loadHomeAnnouncements();
+            } finally { if (btn){ btn.disabled = false; btn.textContent = '发布'; } }
+        }
+
+        async function grantMeSuperAdmin(){
+            var gu = await Supa.client.auth.getUser(); var user = (gu&&gu.data&&gu.data.user)||null; if(!user){ showToast('请先登录','error'); return; }
+            var r = await Supa.client.from('user_roles').upsert({ user_id: user.id, role_code: 'super_admin' });
+            if (!r.error){ showToast('已设为超级管理员'); Common.loadRBACContext().then(function(){ Common.guardUI(document); }); }
+            else {
+                var msg = r.error.message||'错误';
+                if (/RLS|policy|permission|forbidden/i.test(msg)) msg = 'RLS 拒绝赋权，请在 SQL 中开启自赋权策略（已为你提供）';
+                showToast('赋权失败：'+msg,'error');
+            }
+        }
+
+    </script>
+
+</body>
+</html>

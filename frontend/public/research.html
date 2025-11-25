@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>科研课题看板 - By HAISNAP</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <script src="assets/common.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        dark: {
+                            100: '#1e293b',
+                            200: '#0f172a',
+                            300: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* 玻璃拟态样式 */
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            .glass-hover {
+                transition: all 0.3s ease;
+            }
+            .glass-hover:hover {
+                background: rgba(255, 255, 255, 0.25);
+                transform: scale(1.05);
+            }
+            
+            /* 新拟态样式 */
+            .neumorphic {
+                background: #1e293b;
+                box-shadow: 8px 8px 16px #0f172a, 
+                           -8px -8px 16px #2d3b4e;
+            }
+            .neumorphic-inset {
+                background: #1e293b;
+                box-shadow: inset 8px 8px 16px #0f172a, 
+                           inset -8px -8px 16px #2d3b4e;
+            }
+            .neumorphic-hover {
+                transition: all 0.3s ease;
+            }
+            .neumorphic-hover:hover {
+                box-shadow: 12px 12px 20px #0f172a, 
+                           -12px -12px 20px #2d3b4e;
+                transform: scale(1.05);
+            }
+            
+            /* 背景blob */
+            .blob {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(80px);
+                opacity: 0.2;
+                z-index: -1;
+            }
+            
+            /* 自定义滚动条 */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+            
+            /* 下拉菜单样式 */
+            select {
+                background-color: #374151 !important;
+                color: white !important;
+            }
+            
+            select option {
+                background-color: #374151 !important;
+                color: white !important;
+            }
+            
+            select option:hover,
+            select option:checked {
+                background-color: #4b5563 !important;
+                color: white !important;
+            }
+        }
+    </style>
+    <style>
+        .theme-light .glass { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+        .theme-light .glass-hover:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+        .theme-light .blob { opacity: 0.12; filter: blur(80px); }
+        .theme-light select { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+        .theme-light select option { background-color: #ffffff !important; color: #0f172a !important; }
+        .theme-light .text-gray-300 { color: #374151 !important; }
+        .theme-light .text-gray-400 { color: #4b5563 !important; }
+        .animated-gradient { background: linear-gradient(135deg, #ffffff, #f6fafe, #e0f2fe, #ffffff); background-size: 400% 400%; animation: gradientShift 20s ease infinite; }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white custom-scrollbar">
+    <!-- 背景blob -->
+    <div class="blob bg-blue-500 w-96 h-96 top-0 left-0 animate-blob"></div>
+    <div class="blob bg-purple-500 w-96 h-96 bottom-0 right-0 animate-blob" style="animation-delay: -10s;"></div>
+    <div class="blob bg-pink-500 w-96 h-96 top-1/2 right-1/4 animate-blob" style="animation-delay: -5s;"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-50 glass px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-lightbulb-o text-2xl text-primary"></i>
+                <h1 class="text-xl font-bold">科研课题看板</h1>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- 返回首页 -->
+                <a href="index.html" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-arrow-left mr-2"></i>返回首页
+                </a>
+                <button id="themeToggle" class="p-2 rounded-full glass hover:bg-white/20 transition-all" title="切换主题">
+                    <i id="themeIcon" class="fa fa-moon-o"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            applyThemeFromStorage();
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const next = (localStorage.getItem('theme') === 'light') ? 'dark' : 'light';
+                    setTheme(next);
+                });
+            }
+        });
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const body = document.body;
+            if (theme === 'light') {
+                html.classList.add('theme-light');
+                body.classList.remove('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                body.classList.add('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-sun-o'; }
+            } else {
+                html.classList.remove('theme-light');
+                body.classList.remove('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                body.classList.add('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-moon-o'; }
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function applyThemeFromStorage() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            setTheme(theme);
+        }
+    </script>
+    
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 页面标题 -->
+        <section class="mb-8 text-center">
+            <h2 class="text-4xl font-bold mb-4">科研课题看板</h2>
+            <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                查看和管理科研课题项目，实时跟踪课题进展和经费使用情况
+            </p>
+        </section>
+        
+        <!-- 科研通知公告栏 -->
+        <section class="mb-8">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold flex items-center">
+                        <i class="fa fa-bullhorn mr-2 text-primary"></i>
+                        科研通知
+                    </h3>
+                    <div class="flex space-x-2">
+                        <button id="addNoticeBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-plus mr-2"></i>新增通知
+                        </button>
+                        <button id="manageNoticeBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-edit mr-2"></i>管理通知
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="relative pb-12">
+                    <div id="noticeCarousel" class="overflow-hidden">
+                        <div id="noticeContent" class="transition-transform duration-300">
+                            <!-- 通知轮播内容动态生成 -->
+                        </div>
+                    </div>
+                    <!-- 底部控制栏：左右箭头和页码标注 -->
+                    <div class="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-4">
+                        <button id="prevNotice" class="bg-gray-600/60 hover:bg-gray-600/80 p-1.5 rounded-full transition-all">
+                            <i class="fa fa-chevron-left text-sm"></i>
+                        </button>
+                        <div id="noticeIndicator" class="text-center text-sm text-gray-400">
+                            <!-- 页码指示器动态生成 -->
+                        </div>
+                        <button id="nextNotice" class="bg-gray-600/60 hover:bg-gray-600/80 p-1.5 rounded-full transition-all">
+                            <i class="fa fa-chevron-right text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 统计区域 -->
+        <section class="mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="glass glass-hover rounded-2xl p-6 text-center">
+                    <i class="fa fa-list-alt text-4xl text-primary mb-3"></i>
+                    <h3 class="text-2xl font-bold" id="totalCount">3</h3>
+                    <p class="text-gray-300">课题总数</p>
+                </div>
+                
+                <div class="glass glass-hover rounded-2xl p-6 text-center">
+                    <i class="fa fa-spinner text-4xl text-blue-400 mb-3"></i>
+                    <h3 class="text-2xl font-bold" id="ongoingCount">2</h3>
+                    <p class="text-gray-300">进行中</p>
+                </div>
+                
+                <div class="glass glass-hover rounded-2xl p-6 text-center">
+                    <i class="fa fa-check-circle text-4xl text-green-400 mb-3"></i>
+                    <h3 class="text-2xl font-bold" id="completedCount">1</h3>
+                    <p class="text-gray-300">已完成</p>
+                </div>
+                
+                <div class="glass glass-hover rounded-2xl p-6 text-center">
+                    <i class="fa fa-money text-4xl text-yellow-400 mb-3"></i>
+                    <h3 class="text-2xl font-bold" id="totalFunds">160</h3>
+                    <p class="text-gray-300">总经费（万元）</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 筛选区域 -->
+        <section class="mb-8 relative h-40">
+            <div class="glass rounded-2xl p-6 h-full">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fa fa-filter mr-2 text-primary"></i>
+                    课题筛选
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label for="filterLevel" class="block mb-2">课题级别</label>
+                        <select id="filterLevel" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部级别</option>
+                            <option value="市级">市级</option>
+                            <option value="局级">局级</option>
+                            <option value="省级">省级</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="filterDepartment" class="block mb-2">负责部门</label>
+                        <select id="filterDepartment" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部部门</option>
+                            <option value="设计一部">设计一部</option>
+                            <option value="检测一室">检测一室</option>
+                            <option value="材料研究所">材料研究所</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="filterYear" class="block mb-2">立项年份</label>
+                        <select id="filterYear" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部年份</option>
+                            <option value="2023">2023年</option>
+                            <option value="2024">2024年</option>
+                            <option value="2025">2025年</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="filterProgress" class="block mb-2">课题状态</label>
+                        <select id="filterProgress" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部状态</option>
+                            <option value="已立项">已立项</option>
+                            <option value="已中期">已中期</option>
+                            <option value="已结题">已结题</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 筛选按钮移动到右上角 -->
+                <div class="absolute top-4 right-4 flex space-x-4">
+                    <button id="resetFilter" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                        <i class="fa fa-refresh mr-2"></i>重置
+                    </button>
+                    <button id="applyFilter" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                        <i class="fa fa-search mr-2"></i>筛选
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 课题列表 -->
+        <section class="mb-8">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold flex items-center">
+                        <i class="fa fa-list mr-2 text-primary"></i>
+                        课题列表
+                    </h3>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-gray-300">共 <span id="recordCount">3</span> 条记录</span>
+                        <button id="exportBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-download mr-2"></i>导出
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-white/20">
+                                <th class="text-left py-3 px-4">课题名称</th>
+                                <th class="text-left py-3 px-4">承担单位</th>
+                                <th class="text-left py-3 px-4">课题级别</th>
+                                <th class="text-left py-3 px-4">负责人</th>
+                                <th class="text-left py-3 px-4">年份</th>
+                                <th class="text-left py-3 px-4">进度</th>
+                                <th class="text-left py-3 px-4">经费</th>
+                                <th class="text-center py-3 px-4">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="researchTableBody">
+                            <!-- 动态生成的表格行 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="mt-6 flex justify-center">
+                    <div class="flex space-x-2">
+                        <button id="prevPage" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        <button class="px-3 py-2 rounded-lg bg-primary">1</button>
+                        <button id="nextPage" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 课题详情模态框 -->
+    <div id="detailModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="detailOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">课题详情</h2>
+                    <button id="closeDetailBtn" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="detailContent">
+                    <!-- 动态生成的详情内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新增通知模态框 -->
+    <div id="addNoticeModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="addNoticeOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">新增通知</h2>
+                    <button id="closeAddNoticeBtn" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="noticeForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">通知主题 *</label>
+                            <input type="text" id="noticeTitle" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2">通知类型 *</label>
+                            <select id="noticeType" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                                <option value="集团通知">集团通知</option>
+                                <option value="事业部通知">事业部通知</option>
+                                <option value="外部通知">外部通知</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">发布公司 *</label>
+                        <select id="noticeDepartment" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                            <option value="">请选择公司</option>
+                            <option value="城更事业部">城更事业部</option>
+                            <option value="现代院">现代院</option>
+                            <option value="检测站">检测站</option>
+                            <option value="房科院">房科院</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">通知简介 *</label>
+                        <textarea id="noticeSummary" rows="2" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">通知详情 *</label>
+                        <textarea id="noticeDetail" rows="6" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">开始日期 *</label>
+                            <input type="date" id="noticeStartDate" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2">截止日期 *</label>
+                            <input type="date" id="noticeEndDate" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">附件上传（支持拖拽）</label>
+                        <div id="dropZone" class="w-full px-4 py-8 rounded-lg glass bg-white/5 border-2 border-dashed border-white/20 text-center cursor-pointer hover:border-primary transition-all">
+                            <i class="fa fa-cloud-upload text-3xl mb-2 text-gray-400"></i>
+                            <p class="text-gray-400">点击选择文件或将文件拖拽到此处</p>
+                            <p class="text-xs text-gray-500 mt-1">支持图片、PDF、Word等文件，单个文件不超过30MB</p>
+                        </div>
+                        <input type="file" id="noticeAttachments" class="hidden" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx">
+                        <div id="fileList" class="mt-2 space-y-1"></div>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="showOnHome" class="mr-2">
+                        <label for="showOnHome">在首页显示</label>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancelNoticeBtn" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 管理通知模态框 -->
+    <div id="manageNoticeModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="manageNoticeOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl max-h-[85vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">管理通知</h2>
+                    <button id="closeManageNoticeBtn" class="p-1.5 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-white/20">
+                                <th class="text-left py-2 px-3 font-medium">通知主题</th>
+                                <th class="text-left py-2 px-3 font-medium">类型</th>
+                                <th class="text-left py-2 px-3 font-medium">发布公司</th>
+                                <th class="text-left py-2 px-3 font-medium">截止日期</th>
+                                <th class="text-left py-2 px-3 font-medium">状态</th>
+                                <th class="text-center py-2 px-3 font-medium">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="noticeManageTableBody">
+                            <!-- 动态生成的表格行 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 查看通知详情模态框 -->
+    <div id="noticeDetailModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="noticeDetailOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[85vh]">
+            <div class="glass rounded-2xl p-8 max-h-[85vh] overflow-y-auto custom-scrollbar bg-slate-800/95">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white" id="noticeDetailTitle">通知详情</h2>
+                    <button id="closeNoticeDetailBtn" class="p-2 rounded-full hover:bg-white/20 text-white">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="noticeDetailContent" class="space-y-4 text-white">
+                    <!-- 动态生成的详情内容 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图片预览模态框 -->
+    <div id="imagePreviewModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/80" id="imagePreviewOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl p-4">
+            <div class="relative">
+                <button id="closeImagePreviewBtn" class="absolute -top-12 right-0 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+                <img id="previewImage" class="w-full h-auto max-h-[85vh] object-contain rounded-lg" src="" alt="预览图片">
+                <div id="imagePreviewName" class="text-center text-white mt-4 text-lg"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- JavaScript -->
+    <script>
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化通知数据
+            initNoticeData();
+            
+            // 加载通知轮播
+            loadNoticeCarousel();
+            
+            // 加载数据
+            loadResearchTopics();
+            
+            // 筛选功能
+            const applyFilter = document.getElementById('applyFilter');
+            applyFilter.addEventListener('click', function() {
+                loadResearchTopics(true);
+            });
+            
+            // 重置筛选
+            const resetFilter = document.getElementById('resetFilter');
+            resetFilter.addEventListener('click', function() {
+                document.getElementById('filterLevel').value = '';
+                document.getElementById('filterDepartment').value = '';
+                document.getElementById('filterYear').value = '';
+                document.getElementById('filterProgress').value = '';
+                loadResearchTopics();
+            });
+            
+            // 导出功能
+            const exportBtn = document.getElementById('exportBtn');
+            exportBtn.addEventListener('click', function() {
+                try {
+                    const topics = getFilteredTopics();
+                    const data = topics.map(t => ({
+                        '课题名称': t.name,
+                        '承担单位': t.unit,
+                        '课题级别': t.level,
+                        '负责人': t.leader,
+                        '年份': t.year,
+                        '进度': t.progress,
+                        '经费(万)': t.funds,
+                        '项目编号': t.projectNo,
+                        '合同编号': t.contractNo
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, '科研课题');
+                    XLSX.writeFile(wb, `科研课题_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    showToast('导出成功！');
+                } catch (e) {
+                    showToast('导出失败，请稍后重试', 'error');
+                }
+            });
+
+            function getFilteredTopics() {
+                const researchTopics = JSON.parse(localStorage.getItem('researchTopics')) || [];
+                let filteredTopics = [...researchTopics];
+                const level = document.getElementById('filterLevel')?.value || '';
+                const department = document.getElementById('filterDepartment')?.value || '';
+                const year = document.getElementById('filterYear')?.value || '';
+                const progress = document.getElementById('filterProgress')?.value || '';
+                if (level) filteredTopics = filteredTopics.filter(topic => topic.level === level);
+                if (department) filteredTopics = filteredTopics.filter(topic => topic.department === department);
+                if (year) filteredTopics = filteredTopics.filter(topic => topic.year === year);
+                if (progress) filteredTopics = filteredTopics.filter(topic => topic.progress === progress);
+                return filteredTopics;
+            }
+            
+            // 详情模态框
+            const closeDetailBtn = document.getElementById('closeDetailBtn');
+            const detailModal = document.getElementById('detailModal');
+            const detailOverlay = document.getElementById('detailOverlay');
+            
+            function closeDetailModal() {
+                detailModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeDetailBtn.addEventListener('click', closeDetailModal);
+            detailOverlay.addEventListener('click', closeDetailModal);
+            
+            // 通知轮播功能
+            let currentNoticeIndex = 0;
+            let carouselInterval = null;
+            const prevNotice = document.getElementById('prevNotice');
+            const nextNotice = document.getElementById('nextNotice');
+            
+            // 自动轮播函数
+            function startCarousel() {
+                // 清除已有的定时器
+                if (carouselInterval) {
+                    clearInterval(carouselInterval);
+                }
+                
+                // 设置10秒自动轮播
+                carouselInterval = setInterval(function() {
+                    const notices = getActiveNotices();
+                    if (notices.length > 0) {
+                        // 自动向后移动2个通知
+                        currentNoticeIndex = currentNoticeIndex + 2;
+                        if (currentNoticeIndex >= notices.length) {
+                            currentNoticeIndex = 0;
+                        }
+                        displayNoticeAtIndex(currentNoticeIndex);
+                    }
+                }, 10000); // 10秒间隔
+            }
+            
+            // 停止轮播
+            function stopCarousel() {
+                if (carouselInterval) {
+                    clearInterval(carouselInterval);
+                    carouselInterval = null;
+                }
+            }
+            
+            // 鼠标悬停暂停轮播
+            const noticeCarousel = document.getElementById('noticeCarousel');
+            noticeCarousel.addEventListener('mouseenter', function() {
+                stopCarousel();
+            });
+            
+            // 鼠标离开恢复轮播
+            noticeCarousel.addEventListener('mouseleave', function() {
+                startCarousel();
+            });
+            
+            prevNotice.addEventListener('click', function() {
+                const notices = getActiveNotices();
+                if (notices.length > 0) {
+                    // 每次向前移动2个通知
+                    currentNoticeIndex = currentNoticeIndex - 2;
+                    if (currentNoticeIndex < 0) {
+                        // 计算最后一页的起始索引
+                        const totalPages = Math.ceil(notices.length / 2);
+                        currentNoticeIndex = (totalPages - 1) * 2;
+                    }
+                    displayNoticeAtIndex(currentNoticeIndex);
+                    // 手动切换后重启轮播
+                    stopCarousel();
+                    startCarousel();
+                }
+            });
+            
+            nextNotice.addEventListener('click', function() {
+                const notices = getActiveNotices();
+                if (notices.length > 0) {
+                    // 每次向后移动2个通知
+                    currentNoticeIndex = currentNoticeIndex + 2;
+                    if (currentNoticeIndex >= notices.length) {
+                        currentNoticeIndex = 0;
+                    }
+                    displayNoticeAtIndex(currentNoticeIndex);
+                    // 手动切换后重启轮播
+                    stopCarousel();
+                    startCarousel();
+                }
+            });
+            
+            // 启动自动轮播
+            startCarousel();
+            
+            // 新增通知功能
+            const addNoticeBtn = document.getElementById('addNoticeBtn');
+            const closeAddNoticeBtn = document.getElementById('closeAddNoticeBtn');
+            const addNoticeModal = document.getElementById('addNoticeModal');
+            const addNoticeOverlay = document.getElementById('addNoticeOverlay');
+            const cancelNoticeBtn = document.getElementById('cancelNoticeBtn');
+            const noticeForm = document.getElementById('noticeForm');
+            
+            // 拖拽上传功能（移到全局作用域）
+            window.uploadedFiles = [];
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('noticeAttachments');
+            const fileList = document.getElementById('fileList');
+            
+            dropZone.addEventListener('click', () => fileInput.click());
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-primary');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-primary');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-primary');
+                handleFiles(e.dataTransfer.files);
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+            
+            function handleFiles(files) {
+                Array.from(files).forEach(file => {
+                    if (file.size > 30 * 1024 * 1024) {
+                        showToast(`文件 ${file.name} 超过30MB限制`, 'error');
+                        return;
+                    }
+                    
+                    // 将文件转换为Base64
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const fileData = {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: e.target.result // Base64数据
+                        };
+                        window.uploadedFiles.push(fileData);
+                        displayFile(fileData);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            function displayFile(fileData) {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'flex items-center justify-between p-2 rounded glass text-sm';
+                fileItem.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fa fa-file-o mr-2"></i>
+                        <span>${fileData.name}</span>
+                        <span class="text-gray-400 ml-2">(${(fileData.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                    <button type="button" class="text-red-400 hover:text-red-300" onclick="removeFile('${fileData.name}')">
+                        <i class="fa fa-times"></i>
+                    </button>
+                `;
+                fileList.appendChild(fileItem);
+            }
+            
+            window.removeFile = function(fileName) {
+                window.uploadedFiles = window.uploadedFiles.filter(f => f.name !== fileName);
+                fileList.innerHTML = '';
+                window.uploadedFiles.forEach(file => displayFile(file));
+            };
+            
+            function closeAddNoticeModal() {
+                addNoticeModal.classList.add('hidden');
+                document.body.style.overflow = '';
+                noticeForm.reset();
+                fileList.innerHTML = '';
+                window.uploadedFiles = [];
+            }
+            
+            addNoticeBtn.addEventListener('click', function() {
+                addNoticeModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            closeAddNoticeBtn.addEventListener('click', closeAddNoticeModal);
+            addNoticeOverlay.addEventListener('click', closeAddNoticeModal);
+            cancelNoticeBtn.addEventListener('click', closeAddNoticeModal);
+            
+            noticeForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var notice = {
+                    title: document.getElementById('noticeTitle').value,
+                    type: document.getElementById('noticeType').value,
+                    department: document.getElementById('noticeDepartment').value,
+                    summary: document.getElementById('noticeSummary').value,
+                    detail: document.getElementById('noticeDetail').value,
+                    startDate: document.getElementById('noticeStartDate').value,
+                    endDate: document.getElementById('noticeEndDate').value
+                };
+                if (window.Common) {
+                    var check = Common.validateNotice(notice);
+                    if (!check.ok) { showToast(check.message, 'error'); return; }
+                }
+                saveNotice();
+                closeAddNoticeModal();
+                loadNoticeCarousel();
+                showToast('通知保存成功！');
+            });
+            
+            // 管理通知功能
+            const manageNoticeBtn = document.getElementById('manageNoticeBtn');
+            const closeManageNoticeBtn = document.getElementById('closeManageNoticeBtn');
+            const manageNoticeModal = document.getElementById('manageNoticeModal');
+            const manageNoticeOverlay = document.getElementById('manageNoticeOverlay');
+            
+            function closeManageNoticeModal() {
+                manageNoticeModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            manageNoticeBtn.addEventListener('click', function() {
+                loadManageNoticeTable();
+                manageNoticeModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            closeManageNoticeBtn.addEventListener('click', closeManageNoticeModal);
+            manageNoticeOverlay.addEventListener('click', closeManageNoticeModal);
+            
+            // 查看通知详情功能
+            const closeNoticeDetailBtn = document.getElementById('closeNoticeDetailBtn');
+            const noticeDetailModal = document.getElementById('noticeDetailModal');
+            const noticeDetailOverlay = document.getElementById('noticeDetailOverlay');
+            
+            function closeNoticeDetailModal() {
+                noticeDetailModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeNoticeDetailBtn.addEventListener('click', closeNoticeDetailModal);
+            noticeDetailOverlay.addEventListener('click', closeNoticeDetailModal);
+            
+            // 图片预览模态框功能
+            const closeImagePreviewBtn = document.getElementById('closeImagePreviewBtn');
+            const imagePreviewModal = document.getElementById('imagePreviewModal');
+            const imagePreviewOverlay = document.getElementById('imagePreviewOverlay');
+            
+            function closeImagePreviewModal() {
+                imagePreviewModal.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
+            
+            closeImagePreviewBtn.addEventListener('click', closeImagePreviewModal);
+            imagePreviewOverlay.addEventListener('click', closeImagePreviewModal);
+        });
+        
+        // 加载科研课题数据
+        function loadResearchTopics(filter = false) {
+            const researchTopics = JSON.parse(localStorage.getItem('researchTopics')) || [];
+            let filteredTopics = [...researchTopics];
+            
+            // 应用筛选
+            if (filter) {
+                const level = document.getElementById('filterLevel').value;
+                const department = document.getElementById('filterDepartment').value;
+                const year = document.getElementById('filterYear').value;
+                const progress = document.getElementById('filterProgress').value;
+                
+                if (level) {
+                    filteredTopics = filteredTopics.filter(topic => topic.level === level);
+                }
+                if (department) {
+                    filteredTopics = filteredTopics.filter(topic => topic.department === department);
+                }
+                if (year) {
+                    filteredTopics = filteredTopics.filter(topic => topic.year === year);
+                }
+                if (progress) {
+                    filteredTopics = filteredTopics.filter(topic => topic.progress === progress);
+                }
+            }
+            
+            // 更新统计
+            updateStatistics(filteredTopics);
+            
+            // 更新表格
+            updateTable(filteredTopics);
+        }
+        
+        // 更新统计数据
+        function updateStatistics(topics) {
+            const totalCount = topics.length;
+            const ongoingCount = topics.filter(t => t.progress !== '已结题').length;
+            const completedCount = topics.filter(t => t.progress === '已结题').length;
+            const totalFunds = topics.reduce((sum, t) => sum + parseFloat(t.funds || 0), 0);
+            
+            document.getElementById('totalCount').textContent = totalCount;
+            document.getElementById('ongoingCount').textContent = ongoingCount;
+            document.getElementById('completedCount').textContent = completedCount;
+            document.getElementById('totalFunds').textContent = totalFunds;
+            document.getElementById('recordCount').textContent = totalCount;
+        }
+        
+        // 更新表格
+        function updateTable(topics) {
+            const tbody = document.getElementById('researchTableBody');
+            tbody.innerHTML = '';
+            
+            topics.forEach(topic => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-white/20 hover:bg-white/10 transition-colors';
+                
+                // 进度状态样式
+                let progressClass = '';
+                if (topic.progress === '已结题') {
+                    progressClass = 'text-green-400';
+                } else if (topic.progress === '已中期') {
+                    progressClass = 'text-blue-400';
+                } else {
+                    progressClass = 'text-yellow-400';
+                }
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">
+                        <div class="font-medium">${topic.name}</div>
+                        <div class="text-sm text-gray-400">${topic.projectNo}</div>
+                    </td>
+                    <td class="py-3 px-4">${topic.unit}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs glass">${topic.level}</span>
+                    </td>
+                    <td class="py-3 px-4">${topic.leader}</td>
+                    <td class="py-3 px-4">${topic.year}</td>
+                    <td class="py-3 px-4">
+                        <span class="${progressClass} font-medium">${topic.progress}</span>
+                    </td>
+                    <td class="py-3 px-4">${topic.funds}万</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="showDetail('${topic.id}')" class="px-3 py-1 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-eye"></i> 查看
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 显示课题详情
+        function showDetail(topicId) {
+            const topics = JSON.parse(localStorage.getItem('researchTopics')) || [];
+            const topic = topics.find(t => t.id === topicId);
+            
+            if (!topic) return;
+            
+            const detailContent = document.getElementById('detailContent');
+            detailContent.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-bold mb-4 text-primary">基本信息</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">课题名称：</span>
+                                <span>${topic.name}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">项目编号：</span>
+                                <span>${topic.projectNo}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">合同编号：</span>
+                                <span>${topic.contractNo}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">承担单位：</span>
+                                <span>${topic.unit}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">课题级别：</span>
+                                <span>${topic.level}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">课题类别：</span>
+                                <span>${topic.category}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">专业领域：</span>
+                                <span>${topic.major}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">负责部门：</span>
+                                <span>${topic.department}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">负责人：</span>
+                                <span>${topic.leader}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-bold mb-4 text-primary">时间信息</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">立项年份：</span>
+                                <span>${topic.year}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">开始时间：</span>
+                                <span>${topic.startDate}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">结束时间：</span>
+                                <span>${topic.endDate}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">课题进度：</span>
+                                <span class="font-medium">${topic.progress}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">开题评审：</span>
+                                <span>${topic.openingReviewDate || '未进行'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">中期评审：</span>
+                                <span>${topic.midtermReviewDate || '未进行'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">结题评审：</span>
+                                <span>${topic.finalReviewDate || '未进行'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">延期次数：</span>
+                                <span>${topic.extensionCount || 0}次</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-bold mb-4 text-primary">经费信息</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">总经费：</span>
+                                <span class="font-bold text-xl">${topic.funds}万元</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">基本经费：</span>
+                                <span>${topic.basicFee}万元</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">协作经费：</span>
+                                <span>${topic.cooperationFee}万元</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">软件经费：</span>
+                                <span>${topic.softwareFee}万元</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">人力经费：</span>
+                                <span>${topic.humanResourceFee}万元</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">其他经费：</span>
+                                <span>${topic.otherFee}万元</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-lg font-bold mb-4 text-primary">成果信息</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">研究成果：</span>
+                                <span>${topic.results || '暂无'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">备注：</span>
+                                <span>${topic.remarks || '无'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // 显示模态框
+            const detailModal = document.getElementById('detailModal');
+            detailModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            // 创建提示元素
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-6 py-3 rounded-lg z-50 transition-all transform translate-x-full opacity-0`;
+            
+            // 根据类型设置样式
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            // 设置消息内容
+            toast.textContent = message;
+            
+            // 添加到页面
+            document.body.appendChild(toast);
+            
+            // 显示提示
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+            
+            // 3秒后隐藏提示
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                
+                // 动画结束后移除元素
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+        
+        // 初始化通知数据
+        function initNoticeData() {
+            if (!localStorage.getItem('notices')) {
+                const notices = [
+                    {
+                        id: '1',
+                        title: '2025年度科研课题申报工作启动',
+                        summary: '2025年度科研课题申报工作已正式启动，请各部门积极组织申报',
+                        content: '各相关部门：\n\n根据集团科研工作安排，2025年度科研课题申报工作现已正式启动。请各部门高度重视，积极组织本部门科研人员开展课题申报工作。\n\n申报要求：\n1. 申报截止日期为2025年9月30日\n2. 申报材料需按照统一模板填写\n3. 每个部门至少申报2项课题\n4. 优先支持城市更新相关课题\n\n请各部门务必按时完成申报工作。',
+                        attachments: '',
+                        startDate: '2025-07-15',
+                        endDate: '2025-09-30',
+                        type: '事业部通知',
+                        department: '城更事业部',
+                        showOnHome: true
+                    },
+                    {
+                        id: '2',
+                        title: '关于举办"城市更新技术创新"培训的通知',
+                        summary: '为提升员工城市更新技术创新能力，特举办专题培训',
+                        content: '各部门：\n\n为提升员工城市更新技术创新能力，加强技术队伍建设，经研究决定举办"城市更新技术创新"专题培训。\n\n培训安排：\n时间：2025年8月15日 14:00-17:00\n地点：集团总部会议室\n讲师：行业知名专家\n\n请各部门组织相关人员参加，并于8月10日前完成报名。',
+                        attachments: '',
+                        startDate: '2025-07-10',
+                        endDate: '2025-08-15',
+                        type: '集团通知',
+                        department: '集团培训中心',
+                        showOnHome: true
+                    }
+                ];
+                localStorage.setItem('notices', JSON.stringify(notices));
+            }
+        }
+        
+        // 获取活跃的通知（未过期）
+        function getActiveNotices() {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const today = new Date().toISOString().split('T')[0];
+            return notices.filter(notice => notice.endDate >= today);
+        }
+        
+        // 计算剩余天数
+        function getDaysRemaining(endDate) {
+            const today = new Date();
+            const end = new Date(endDate);
+            const diff = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+            return diff;
+        }
+        
+        // 获取剩余天数标签样式
+        function getDaysLabel(days) {
+            if (days < 0) return { text: '已过期', class: 'bg-gray-500' };
+            if (days <= 3) return { text: `剩余${days}天`, class: 'bg-red-500' };
+            if (days <= 7) return { text: `剩余${days}天`, class: 'bg-orange-500' };
+            return { text: `剩余${days}天`, class: 'bg-green-500' };
+        }
+        
+        // 加载通知轮播
+        function loadNoticeCarousel() {
+            const notices = getActiveNotices();
+            const noticeContent = document.getElementById('noticeContent');
+            
+            if (notices.length === 0) {
+                noticeContent.innerHTML = '<div class="p-6 text-center text-gray-400">暂无通知</div>';
+                return;
+            }
+            
+            currentNoticeIndex = 0;
+            displayNoticeAtIndex(0);
+            
+            // 重启自动轮播
+            if (typeof startCarousel === 'function') {
+                startCarousel();
+            }
+        }
+        
+        // 显示指定索引的通知
+        function displayNoticeAtIndex(index) {
+            const notices = getActiveNotices();
+            if (notices.length === 0) return;
+            
+            const noticeContent = document.getElementById('noticeContent');
+            
+            // 横向显示2个通知
+            const notice1 = notices[index];
+            const notice2 = notices[index + 1];
+            
+            let noticesHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+            
+            // 第一个通知
+            const days1 = getDaysRemaining(notice1.endDate);
+            const daysLabel1 = getDaysLabel(days1);
+            
+            noticesHTML += `
+                <div class="p-6 cursor-pointer hover:bg-white/5 transition-colors rounded-lg border border-white/10" onclick="showNoticeDetail('${notice1.id}')">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <div class="flex items-center mb-2">
+                                <span class="px-2 py-1 rounded text-xs glass mr-2">${notice1.type}</span>
+                                <span class="px-2 py-1 rounded text-xs ${daysLabel1.class}">${daysLabel1.text}</span>
+                            </div>
+                            <h4 class="text-lg font-bold mb-2">${notice1.title}</h4>
+                            <p class="text-gray-300 text-sm mb-2">${notice1.summary}</p>
+                            <div class="flex items-center text-sm text-gray-400">
+                                <i class="fa fa-building mr-1"></i>
+                                <span class="mr-4">${notice1.department}</span>
+                                <i class="fa fa-calendar mr-1"></i>
+                                <span>${notice1.startDate} 至 ${notice1.endDate}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-right text-sm mt-2 flex items-center justify-end opacity-80 hover:opacity-100 transition-opacity">
+                        <i class="fa fa-eye mr-1 text-gray-400"></i><span class="text-white">点击查看详情</span>
+                    </div>
+                </div>
+            `;
+            
+            // 第二个通知（如果存在）
+            if (notice2) {
+                const days2 = getDaysRemaining(notice2.endDate);
+                const daysLabel2 = getDaysLabel(days2);
+                
+                noticesHTML += `
+                    <div class="p-6 cursor-pointer hover:bg-white/5 transition-colors rounded-lg border border-white/10" onclick="showNoticeDetail('${notice2.id}')">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <span class="px-2 py-1 rounded text-xs glass mr-2">${notice2.type}</span>
+                                    <span class="px-2 py-1 rounded text-xs ${daysLabel2.class}">${daysLabel2.text}</span>
+                                </div>
+                                <h4 class="text-lg font-bold mb-2">${notice2.title}</h4>
+                                <p class="text-gray-300 text-sm mb-2">${notice2.summary}</p>
+                                <div class="flex items-center text-sm text-gray-400">
+                                    <i class="fa fa-building mr-1"></i>
+                                    <span class="mr-4">${notice2.department}</span>
+                                    <i class="fa fa-calendar mr-1"></i>
+                                    <span>${notice2.startDate} 至 ${notice2.endDate}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right text-sm mt-2 flex items-center justify-end opacity-80 hover:opacity-100 transition-opacity">
+                            <i class="fa fa-eye mr-1 text-gray-400"></i><span class="text-white">点击查看详情</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            noticesHTML += '</div>';
+            
+            noticeContent.innerHTML = noticesHTML;
+            
+            // 更新指示器 - 放到独立的容器中
+            const indicatorContainer = document.getElementById('noticeIndicator');
+            if (indicatorContainer) {
+                if (notices.length > 1) {
+                    const totalPages = Math.ceil(notices.length / 2);
+                    const currentPage = Math.floor(index / 2) + 1;
+                    indicatorContainer.textContent = `${currentPage} / ${totalPages}`;
+                } else {
+                    indicatorContainer.textContent = '';
+                }
+            }
+        }
+        
+        // 保存通知
+        function saveNotice(editId = null) {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            
+            // 保存完整的附件数据（包括Base64）
+            const attachmentsData = window.uploadedFiles.map(f => ({
+                name: f.name,
+                size: f.size,
+                type: f.type,
+                data: f.data
+            }));
+            
+            const notice = {
+                id: editId || Date.now().toString(),
+                title: document.getElementById('noticeTitle').value,
+                summary: document.getElementById('noticeSummary').value,
+                content: document.getElementById('noticeDetail').value,
+                attachments: JSON.stringify(attachmentsData),
+                startDate: document.getElementById('noticeStartDate').value,
+                endDate: document.getElementById('noticeEndDate').value,
+                type: document.getElementById('noticeType').value,
+                department: document.getElementById('noticeDepartment').value,
+                showOnHome: document.getElementById('showOnHome').checked
+            };
+            
+            if (editId) {
+                const index = notices.findIndex(n => n.id === editId);
+                if (index !== -1) {
+                    notices[index] = notice;
+                }
+            } else {
+                notices.push(notice);
+            }
+            
+            localStorage.setItem('notices', JSON.stringify(notices));
+            
+            // 清空文件列表
+            window.uploadedFiles = [];
+        }
+        
+        // 加载管理通知表格
+        function loadManageNoticeTable() {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const tbody = document.getElementById('noticeManageTableBody');
+            tbody.innerHTML = '';
+            
+            notices.forEach(notice => {
+                const days = getDaysRemaining(notice.endDate);
+                const daysLabel = getDaysLabel(days);
+                const row = document.createElement('tr');
+                row.className = 'border-b border-white/20 hover:bg-white/10 transition-colors';
+                
+                row.innerHTML = `
+                    <td class="py-2 px-3">${notice.title}</td>
+                    <td class="py-2 px-3"><span class="px-2 py-0.5 rounded-full text-xs glass">${notice.type}</span></td>
+                    <td class="py-2 px-3">${notice.department}</td>
+                    <td class="py-2 px-3">${notice.endDate}</td>
+                    <td class="py-2 px-3"><span class="px-2 py-0.5 rounded text-xs ${daysLabel.class}">${daysLabel.text}</span></td>
+                    <td class="py-2 px-3 text-center">
+                        <button onclick="editNotice('${notice.id}')" class="px-2 py-1 text-xs rounded glass hover:bg-white/20 transition-all mr-1">
+                            <i class="fa fa-edit"></i> 编辑
+                        </button>
+                        <button onclick="deleteNotice('${notice.id}')" class="px-2 py-1 text-xs rounded bg-red-500/80 hover:bg-red-500 transition-all">
+                            <i class="fa fa-trash"></i> 删除
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 编辑通知
+        function editNotice(noticeId) {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const notice = notices.find(n => n.id === noticeId);
+            
+            if (!notice) return;
+            
+            document.getElementById('noticeTitle').value = notice.title;
+            document.getElementById('noticeSummary').value = notice.summary;
+            document.getElementById('noticeDetail').value = notice.content;
+            document.getElementById('noticeStartDate').value = notice.startDate;
+            document.getElementById('noticeEndDate').value = notice.endDate;
+            document.getElementById('noticeType').value = notice.type;
+            document.getElementById('noticeDepartment').value = notice.department;
+            document.getElementById('showOnHome').checked = notice.showOnHome;
+            
+            // 加载已有的附件
+            window.uploadedFiles = [];
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            if (notice.attachments) {
+                try {
+                    const attachmentsData = JSON.parse(notice.attachments);
+                    if (Array.isArray(attachmentsData)) {
+                        window.uploadedFiles = attachmentsData;
+                        attachmentsData.forEach(file => {
+                            displayFile(file);
+                        });
+                    }
+                } catch (e) {
+                    console.error('解析附件数据失败:', e);
+                }
+            }
+            
+            // 关闭管理窗口，打开编辑窗口
+            document.getElementById('manageNoticeModal').classList.add('hidden');
+            document.getElementById('addNoticeModal').classList.remove('hidden');
+            
+            // 修改表单提交行为
+            const noticeForm = document.getElementById('noticeForm');
+            noticeForm.onsubmit = function(e) {
+                e.preventDefault();
+                saveNotice(noticeId);
+                document.getElementById('addNoticeModal').classList.add('hidden');
+                document.body.style.overflow = '';
+                noticeForm.reset();
+                document.getElementById('fileList').innerHTML = '';
+                window.uploadedFiles = [];
+                loadNoticeCarousel();
+                loadManageNoticeTable();
+                showToast('通知更新成功！');
+                // 恢复默认提交行为
+                noticeForm.onsubmit = null;
+            };
+        }
+        
+        // 删除通知
+        function deleteNotice(noticeId) {
+            if (!confirm('确定要删除这条通知吗？')) return;
+            
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const filtered = notices.filter(n => n.id !== noticeId);
+            localStorage.setItem('notices', JSON.stringify(filtered));
+            
+            loadManageNoticeTable();
+            loadNoticeCarousel();
+            showToast('通知删除成功！');
+        }
+        
+        // 显示通知详情
+        function showNoticeDetail(noticeId) {
+            const notices = JSON.parse(localStorage.getItem('notices')) || [];
+            const notice = notices.find(n => n.id === noticeId);
+            
+            if (!notice) return;
+            
+            const days = getDaysRemaining(notice.endDate);
+            const daysLabel = getDaysLabel(days);
+            
+            document.getElementById('noticeDetailTitle').textContent = notice.title;
+            
+            let attachmentsList = '<span class="text-gray-300">无附件</span>';
+            
+            if (notice.attachments) {
+                try {
+                    const attachmentsData = JSON.parse(notice.attachments);
+                    if (Array.isArray(attachmentsData) && attachmentsData.length > 0) {
+                        attachmentsList = attachmentsData.map((file, index) => {
+                            const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(file.name) || file.type.startsWith('image/');
+                            const fileIcon = isImage ? 'fa-file-image-o' : 'fa-file-o';
+                            
+                            return `<div class="flex items-center justify-between p-3 rounded glass hover:bg-white/10 transition-all">
+                                <div class="flex items-center flex-1">
+                                    <i class="fa ${fileIcon} mr-3 text-primary text-lg"></i>
+                                    <span class="break-all text-white">${file.name}</span>
+                                </div>
+                                <div class="flex space-x-2 ml-4">
+                                    ${isImage ? `<button onclick="previewImageFromData('${file.data}', '${file.name}')" class="px-3 py-1 rounded bg-blue-500/80 hover:bg-blue-500 transition-all text-sm">
+                                        <i class="fa fa-eye mr-1"></i>预览
+                                    </button>` : ''}
+                                    <button onclick="downloadAttachmentFromData('${file.data}', '${file.name}')" class="px-3 py-1 rounded bg-green-500/80 hover:bg-green-500 transition-all text-sm">
+                                        <i class="fa fa-download mr-1"></i>下载
+                                    </button>
+                                </div>
+                            </div>`;
+                        }).join('');
+                    }
+                } catch (e) {
+                    console.error('解析附件数据失败:', e);
+                }
+            }
+            
+            document.getElementById('noticeDetailContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="px-3 py-1 rounded glass text-white">${notice.type}</span>
+                        <span class="px-3 py-1 rounded text-white ${daysLabel.class}">${daysLabel.text}</span>
+                    </div>
+                    
+                    <div class="border-t border-white/20 pt-4">
+                        <div class="flex items-center text-gray-300 text-sm mb-2">
+                            <i class="fa fa-building mr-2"></i>
+                            <span>${notice.department}</span>
+                        </div>
+                        <div class="flex items-center text-gray-300 text-sm">
+                            <i class="fa fa-calendar mr-2"></i>
+                            <span>${notice.startDate} 至 ${notice.endDate}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-white/20 pt-4">
+                        <h3 class="font-bold mb-2 text-white">通知简介</h3>
+                        <p class="text-gray-200 leading-relaxed">${notice.summary}</p>
+                    </div>
+                    
+                    <div class="border-t border-white/20 pt-4">
+                        <h3 class="font-bold mb-2 text-white">通知详情</h3>
+                        <div class="text-gray-200 whitespace-pre-wrap leading-relaxed">${notice.content}</div>
+                    </div>
+                    
+                    <div class="border-t border-white/20 pt-4">
+                        <h3 class="font-bold mb-2 text-white">附件</h3>
+                        <div class="space-y-2">${attachmentsList}</div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('noticeDetailModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 图片预览功能（使用Base64数据）
+        function previewImageFromData(base64Data, imageName) {
+            const modal = document.getElementById('imagePreviewModal');
+            const previewImg = document.getElementById('previewImage');
+            const previewName = document.getElementById('imagePreviewName');
+            
+            previewImg.src = base64Data;
+            previewName.textContent = imageName;
+            
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 附件下载功能（使用Base64数据）
+        function downloadAttachmentFromData(base64Data, fileName) {
+            const a = document.createElement('a');
+            a.href = base64Data;
+            a.download = fileName || '附件';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast('开始下载附件：' + fileName);
+        }
+        
+        // 保留旧的预览和下载函数以兼容性
+        function previewImage(imageUrl, imageName) {
+            previewImageFromData(imageUrl, imageName);
+        }
+        
+        function downloadAttachment(fileUrl, fileName) {
+            downloadAttachmentFromData(fileUrl, fileName);
+        }
+    </script>
+</body>
+</html>

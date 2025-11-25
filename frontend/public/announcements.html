@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系统公告 - 技术质量管理平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script src="assets/common.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase.js"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white">
+  <header class="glass py-4">
+    <div class="container mx-auto px-4 flex justify-between items-center">
+      <h1 class="text-2xl font-bold flex items-center"><i class="fa fa-bullhorn mr-3"></i>系统公告</h1>
+      <a href="index.html" class="px-3 py-2 rounded-lg glass hover:bg-white/20"><i class="fa fa-home mr-2"></i>返回首页</a>
+    </div>
+  </header>
+  <main class="container mx-auto px-4 py-8">
+    <div class="glass rounded-2xl p-6 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+        <div>
+          <label class="block mb-1 text-sm">标题/部门</label>
+          <input id="searchInput" class="w-full px-3 py-2 rounded-lg glass bg-white/5 border border-white/20" placeholder="输入关键词">
+        </div>
+        <div>
+          <label class="block mb-1 text-sm">日期范围</label>
+          <div class="grid grid-cols-2 gap-2">
+            <input id="startDate" type="date" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20">
+            <input id="endDate" type="date" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20">
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button id="refreshBtn" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">刷新</button>
+          <button id="clearBtn" class="px-4 py-2 rounded-lg glass">清空筛选</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="annList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+    <div id="previewModal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/60" id="previewOverlay"></div>
+      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl">
+        <div class="glass rounded-2xl p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold" id="previewTitle"></h2>
+            <button id="closePreview" class="p-2 rounded-full hover:bg-white/20"><i class="fa fa-times"></i></button>
+          </div>
+          <img id="previewCover" class="w-full h-64 object-cover rounded mb-4" alt="封面">
+          <div id="previewDetail" class="text-gray-200 leading-7"></div>
+          <div id="previewAttachments" class="mt-4"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function(){
+      loadAnnouncements();
+      document.getElementById('refreshBtn').addEventListener('click', loadAnnouncements);
+      document.getElementById('clearBtn').addEventListener('click', function(){
+        document.getElementById('searchInput').value=''; document.getElementById('startDate').value=''; document.getElementById('endDate').value=''; loadAnnouncements();
+      });
+      document.getElementById('closePreview').addEventListener('click', closePreview);
+      document.getElementById('previewOverlay').addEventListener('click', closePreview);
+    });
+
+    async function loadAnnouncements(){
+      var search = document.getElementById('searchInput').value.trim();
+      var start = document.getElementById('startDate').value; var end = document.getElementById('endDate').value;
+      var q = Supa.client.from('announcements').select('*').order('created_at', { ascending: false });
+      var r = await q; var rows = Array.isArray(r.data) ? r.data : [];
+      if (search){ rows = rows.filter(function(a){ var s = (a.title||'')+' '+(a.department||''); return s.toLowerCase().includes(search.toLowerCase()); }); }
+      if (start){ rows = rows.filter(function(a){ return !a.start_date || new Date(a.start_date) >= new Date(start); }); }
+      if (end){ rows = rows.filter(function(a){ return !a.end_date || new Date(a.end_date) <= new Date(end); }); }
+      renderList(rows);
+    }
+
+    function renderList(items){
+      var container = document.getElementById('annList');
+      container.innerHTML = items.map(function(a){
+        var cover = a.cover_url || 'https://picsum.photos/800/600?random=' + Date.now();
+        var dates = [a.start_date||'', a.end_date||''].filter(Boolean).join(' 至 ');
+        return `
+          <div class="glass rounded-2xl overflow-hidden">
+            <img src="${cover}" class="w-full h-40 object-cover" alt="cover">
+            <div class="p-4">
+              <div class="flex justify-between items-start">
+                <h3 class="text-lg font-bold">${a.title||''}</h3>
+                <span class="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary">${a.department||''}</span>
+              </div>
+              <div class="text-gray-400 text-sm mt-1">${dates}</div>
+              <div class="mt-3 flex gap-2">
+                <button class="px-3 py-1 rounded bg-blue-500/80 hover:bg-blue-500" onclick="openPreview('${a.id}')"><i class="fa fa-search-plus mr-1"></i>预览</button>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    async function openPreview(id){
+      var r = await Supa.client.from('announcements').select('*').eq('id', id).single();
+      if (r.error || !r.data){ Common.showToast('加载失败','error'); return; }
+      var a = r.data;
+      document.getElementById('previewTitle').textContent = a.title||'';
+      document.getElementById('previewCover').src = a.cover_url || '';
+      document.getElementById('previewDetail').textContent = a.detail || '';
+      var list = Array.isArray(a.attachments)? a.attachments : [];
+      var html = '';
+      if (list.length){
+        html = '<h4 class="font-bold mb-2">附件</h4><div class="space-y-2">' + list.map(function(f){
+          var isImg = (f.type||'').startsWith('image/');
+          if (isImg){ return `<div class="rounded overflow-hidden"><img src="${f.url}" class="w-full h-48 object-cover"><div class="text-xs text-gray-300 mt-1">${f.name}</div></div>`; }
+          return `<div class="flex items-center justify-between p-2 rounded bg-white/5"><span class="text-sm truncate">${f.name}</span><a href="${f.url}" target="_blank" class="px-2 py-1 rounded bg-green-500/80 hover:bg-green-500"><i class="fa fa-download"></i> 下载</a></div>`;
+        }).join('') + '</div>';
+      }
+      document.getElementById('previewAttachments').innerHTML = html;
+      document.getElementById('previewModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closePreview(){
+      document.getElementById('previewModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+  </script>
+</body>
+</html>

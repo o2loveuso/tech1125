@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>现代院奖项综合管理系统 - By HAISNAP</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="assets/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/supabase.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1E3A8A',
+                        secondary: '#D4AF37',
+                        dark: {
+                            100: '#1e293b',
+                            200: '#0f172a',
+                            300: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* 玻璃拟态样式 */
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            
+            /* 全局字体优化 */
+            body {
+                font-size: 0.875rem;
+                font-weight: 400;
+            }
+            h1 { font-size: 1.125rem; font-weight: 600; }
+            h2 { font-size: 1rem; font-weight: 600; }
+            h3 { font-size: 0.9375rem; font-weight: 500; }
+            h4 { font-size: 0.875rem; font-weight: 500; }
+            .font-bold { font-weight: 600; }
+            
+            /* 背景blob */
+            .blob {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(80px);
+                opacity: 0.2;
+                z-index: -1;
+            }
+            
+            /* 自定义滚动条 */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+        }
+    </style>
+    <style>
+        .theme-light .glass { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+        .theme-light .glass-hover:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+        .theme-light .blob { opacity: 0.12; filter: blur(80px); }
+        .theme-light select { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+        .theme-light select option { background-color: #ffffff !important; color: #0f172a !important; }
+        .theme-light .text-gray-300 { color: #374151 !important; }
+        .theme-light .text-gray-400 { color: #4b5563 !important; }
+        .animated-gradient { background: linear-gradient(135deg, #ffffff, #f6fafe, #e0f2fe, #ffffff); background-size: 400% 400%; animation: gradientShift 20s ease infinite; }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white custom-scrollbar">
+    <!-- 背景blob -->
+    <div class="blob bg-blue-500 w-96 h-96 top-0 left-0 animate-blob"></div>
+    <div class="blob bg-purple-500 w-96 h-96 bottom-0 right-0 animate-blob" style="animation-delay: -10s;"></div>
+    <div class="blob bg-pink-500 w-96 h-96 top-1/2 right-1/4 animate-blob" style="animation-delay: -5s;"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-50 glass px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-trophy text-2xl text-secondary"></i>
+                <h1 class="text-xl font-bold">现代院 奖项综合管理系统</h1>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <button id="awardManagementBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-cogs mr-2"></i>奖项管理
+                </button>
+                <a href="index.html" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-arrow-left mr-2"></i>回到主页
+                </a>
+                <button id="themeToggle" class="p-2 rounded-full glass hover:bg-white/20 transition-all" title="切换主题">
+                    <i id="themeIcon" class="fa fa-moon-o"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            applyThemeFromStorage();
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const next = (localStorage.getItem('theme') === 'light') ? 'dark' : 'light';
+                    setTheme(next);
+                });
+            }
+        });
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const body = document.body;
+            if (theme === 'light') {
+                html.classList.add('theme-light');
+                body.classList.remove('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                body.classList.add('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-sun-o'; }
+            } else {
+                html.classList.remove('theme-light');
+                body.classList.remove('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                body.classList.add('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-moon-o'; }
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function applyThemeFromStorage() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            setTheme(theme);
+        }
+    </script>
+    
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 页面标题 -->
+        <section class="text-center mb-16">
+            <h2 class="text-3xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-white bg-clip-text text-transparent">
+                现代院 奖项综合管理系统
+            </h2>
+            <p class="text-xl text-gray-300">
+                智能报奖流程 / 实时进度监控 / 报奖节点提醒
+            </p>
+        </section>
+        
+        <!-- 奖项相关通知 -->
+        <section class="mb-16">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold flex items-center">
+                        <i class="fa fa-bullhorn mr-2 text-yellow-400"></i>
+                        奖项相关通知
+                    </h3>
+                    <div class="flex space-x-2">
+                        <button id="addNoticeBtn" class="p-2 rounded glass hover:bg-white/20 transition-all" title="新增通知">
+                            <i class="fa fa-plus"></i>
+                        </button>
+                        <button id="manageNoticeBtn" class="p-2 rounded glass hover:bg-white/20 transition-all" title="管理通知">
+                            <i class="fa fa-cog"></i>
+                        </button>
+                        <button id="toggleViewBtn" class="p-2 rounded glass hover:bg-white/20 transition-all" title="切换显示方式">
+                            <i class="fa fa-exchange"></i>
+                        </button>
+                        <button id="allNoticesBtn" class="p-2 rounded glass hover:bg-white/20 transition-all" title="全部奖项通知">
+                            <i class="fa fa-list"></i>
+                        </button>
+                        <button id="downloadBtn" class="p-2 rounded glass hover:bg-white/20 transition-all" title="下载通知">
+                            <i class="fa fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="relative pb-12">
+                    <div id="notificationCarousel" class="overflow-hidden">
+                        <div id="notificationTrack" class="transition-transform duration-300">
+                            <!-- 通知轮播内容动态生成 -->
+                        </div>
+                    </div>
+                    <!-- 底部控制栏：左右箭头和页码标注 -->
+                    <div class="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-4">
+                        <button id="prevNotice" class="bg-gray-600/60 hover:bg-gray-600/80 p-1.5 rounded-full transition-all">
+                            <i class="fa fa-chevron-left text-sm"></i>
+                        </button>
+                        <div id="noticeIndicator" class="text-center text-sm text-gray-400">
+                            <!-- 页码指示器动态生成 -->
+                        </div>
+                        <button id="nextNotice" class="bg-gray-600/60 hover:bg-gray-600/80 p-1.5 rounded-full transition-all">
+                            <i class="fa fa-chevron-right text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 获奖项目展示 -->
+        <section>
+            <div class="mb-8">
+                <h3 class="text-3xl font-bold mb-2 flex items-center">
+                    <i class="fa fa-star mr-3 text-yellow-400"></i>
+                    获奖项目展示
+                </h3>
+                <p class="text-gray-400">展示现代院优秀获奖项目，点击查看详情</p>
+            </div>
+            
+            <!-- 获奖项目网格容器 -->
+            <div id="awardProjects" class="grid grid-cols-4 gap-6">
+                <!-- 项目卡片将在这里动态生成 -->
+            </div>
+            
+            <!-- 加载更多按钮 -->
+            <div class="text-center mt-8">
+                <button id="loadMoreBtn" class="px-6 py-3 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-chevron-down mr-2"></i>加载更多
+                </button>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 报奖登记模态框 -->
+    <div id="awardModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="awardOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">奖项申报登记</h2>
+                    <button id="closeAwardModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="awardForm" class="space-y-4">
+                    <!-- 基本信息 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">申报奖项主题 *</label>
+                            <input type="text" id="awardTitle" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2">申报部门 *</label>
+                            <select id="awardDepartment" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                                <option value="">请选择部门</option>
+                                <option value="设计一部">设计一部</option>
+                                <option value="设计二部">设计二部</option>
+                                <option value="结构院">结构院</option>
+                                <option value="设备院">设备院</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- 子项类别列表 -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block">子项类别</label>
+                            <button type="button" id="addSubItemBtn" class="px-3 py-1 rounded-lg bg-secondary hover:bg-yellow-600 transition-all text-sm">
+                                <i class="fa fa-plus mr-1"></i>增加子项
+                            </button>
+                        </div>
+                        <div id="subItemsList" class="space-y-2">
+                            <!-- 子项将在这里动态添加 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 封面上传 -->
+                    <div>
+                        <label class="block mb-2">封面图片</label>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center">
+                            <input type="file" id="coverImage" accept="image/*" class="hidden">
+                            <button type="button" onclick="document.getElementById('coverImage').click()" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择封面图片
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持 JPG、PNG 格式</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 附件上传 -->
+                    <div>
+                        <label class="block mb-2">附件上传</label>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center">
+                            <input type="file" id="attachments" multiple class="hidden">
+                            <button type="button" onclick="document.getElementById('attachments').click()" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                                <i class="fa fa-paperclip mr-2"></i>选择附件
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持多个文件，单个文件不超过100MB</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancelAwardBtn" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>提交申报
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 通知详情模态框 -->
+    <div id="noticeDetailModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="noticeDetailOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">通知详情</h2>
+                    <button id="closeNoticeDetailModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="noticeDetailContent">
+                    <!-- 通知详情内容将在这里动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 项目详情模态框 -->
+    <div id="projectDetailModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="projectDetailOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">获奖项目详情</h2>
+                    <button id="closeProjectDetailModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="projectDetailContent">
+                    <!-- 项目详情内容将在这里动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 管理通知模态框 -->
+    <div id="manageNotificationsModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="manageNotificationsOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">管理通知</h2>
+                    <button id="closeManageNotificationsModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- 搜索框 -->
+                <div class="mb-6">
+                    <div class="relative">
+                        <input type="text" id="notificationSearchInput" placeholder="输入关键词搜索通知标题或内容" 
+                               class="w-full px-4 py-3 pr-12 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        <i class="fa fa-search absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                
+                <!-- 通知列表 -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-white/20">
+                                <th class="text-left py-3 px-4">通知标题</th>
+                                <th class="text-left py-3 px-4">发布日期</th>
+                                <th class="text-left py-3 px-4">剩余天数</th>
+                                <th class="text-left py-3 px-4">状态</th>
+                                <th class="text-center py-3 px-4">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manageNotificationTableBody">
+                            <!-- 动态生成的通知行 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑通知模态框 -->
+    <div id="editNoticeModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/50" id="editNoticeOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">编辑通知</h2>
+                    <button id="closeEditNoticeModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="editNoticeForm" class="space-y-4">
+                    <input type="hidden" id="editNoticeId">
+                    
+                    <!-- 通知主题 -->
+                    <div>
+                        <label class="block mb-2">通知主题 *</label>
+                        <input type="text" id="editNoticeTitle" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                    </div>
+                    
+                    <!-- 奖项子项类别 -->
+                    <div>
+                        <label class="block mb-2">奖项子项类别</label>
+                        <input type="text" id="editNoticeCategory" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                    </div>
+                    
+                    <!-- 通知简介 -->
+                    <div>
+                        <label class="block mb-2">通知简介 *</label>
+                        <textarea id="editNoticeSummary" rows="2" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required></textarea>
+                    </div>
+                    
+                    <!-- 详细内容 -->
+                    <div>
+                        <label class="block mb-2">详细内容 *</label>
+                        <textarea id="editNoticeContent" rows="6" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required></textarea>
+                    </div>
+                    
+                    <!-- 申报时间范围 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">申报开始时间</label>
+                            <input type="date" id="editNoticeStartDate" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">申报截止时间</label>
+                            <input type="date" id="editNoticeEndDate" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    
+                    <!-- 复选框选项 -->
+                    <div class="flex items-center gap-6">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="editEnableRegistration" class="mr-2">
+                            <span>开启报名</span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancelEditNotice" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新增通知模态框 -->
+    <div id="addNoticeFormModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="addNoticeFormOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">新增通知</h2>
+                    <button id="closeAddNoticeFormModal" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="addNoticeForm" class="space-y-4">
+                    <!-- 通知主题 -->
+                    <div>
+                        <label class="block mb-2">通知主题 *</label>
+                        <input type="text" id="noticeTitle" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                    </div>
+                    
+                    <!-- 奖项子项类别 -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block">奖项子项类别</label>
+                            <button type="button" id="addCategoryBtn" class="px-3 py-1 rounded-lg bg-secondary hover:bg-yellow-600 transition-all text-sm">
+                                <i class="fa fa-plus mr-1"></i>增加类别
+                            </button>
+                        </div>
+                        <div id="categoriesList" class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="text" placeholder="子项类别" class="flex-1 px-3 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary category-input">
+                                <button type="button" onclick="this.closest('div').remove()" class="p-2 rounded-lg bg-red-500/80 hover:bg-red-500 transition-all">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 通知简介 -->
+                    <div>
+                        <label class="block mb-2">通知简介 *</label>
+                        <textarea id="noticeSummary" rows="2" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required></textarea>
+                    </div>
+                    
+                    <!-- 奖项主体 -->
+                    <div>
+                        <label class="block mb-2">奖项主体（详细内容） *</label>
+                        <textarea id="noticeContent" rows="6" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required></textarea>
+                    </div>
+                    
+                    <!-- 通知附件 -->
+                    <div>
+                        <label class="block mb-2">通知附件</label>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center">
+                            <input type="file" id="noticeAttachments" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" class="hidden">
+                            <button type="button" onclick="document.getElementById('noticeAttachments').click()" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择附件
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持图片和文档，单个文件不超过30MB</p>
+                        </div>
+                        <div id="attachmentsList" class="mt-2 space-y-1"></div>
+                    </div>
+                    
+                    <!-- 申报时间范围 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">申报开始时间</label>
+                            <input type="date" id="noticeStartDate" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">申报截止时间</label>
+                            <input type="date" id="noticeEndDate" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    
+                    <!-- 显示范围 -->
+                    <div>
+                        <label class="block mb-2">通知显示范围（可多选）</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="mr-2 notice-scope" value="全局">
+                                <span>全局通知</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="mr-2 notice-scope" value="现代院">
+                                <span>仅现代院</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="mr-2 notice-scope" value="检测站">
+                                <span>仅检测站</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="mr-2 notice-scope" value="房科院">
+                                <span>仅房科院</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- 复选框选项 -->
+                    <div class="flex items-center gap-6">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="showOnHome" class="mr-2">
+                            <span>在主页公告显示</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="enableRegistration" class="mr-2" checked>
+                            <span>开启报名</span>
+                        </label>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancelAddNoticeForm" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>保存通知
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 初始化数据 - 添加localStorage持久化
+        let notifications = loadNotifications();
+        
+        // 从localStorage加载通知数据
+        function loadNotifications() {
+            const saved = localStorage.getItem('awardNotifications');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+            // 默认初始数据
+            return [
+                {
+                    id: 1,
+                    title: '2025年度国家优秀工程设计奖申报通知',
+                    category: '工程设计、建筑设计、城市规划',
+                    content: '各相关部门：2025年度国家优秀工程设计奖申报工作已启动，请符合条件的项目积极申报...',
+                    fullContent: '为贯彻落实国家关于提升工程设计质量的指导思想，推动行业技术创新和设计水平提升，2025年度国家优秀工程设计奖申报工作正式启动。本次评选涵盖建筑工程、市政工程、园林工程等多个领域，欢迎各单位积极申报。\n\n申报要求：\n1. 项目必须为近三年内完成的工程；\n2. 具有较高的技术含量和创新性；\n3. 已通过竣工验收并投入使用；\n4. 无重大质量安全问题。',
+                    date: '2025-07-15',
+                    startTime: '2025-07-20',
+                    endTime: '2025-09-30',
+                    daysLeft: 15,
+                    canRegister: true,
+                    attachments: [
+                        { name: '申报指南.pdf', type: 'pdf', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/pdf/guide.pdf' },
+                        { name: '申报表格.docx', type: 'doc', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/doc/form.docx' },
+                        { name: '优秀案例图片.jpg', type: 'image', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/transparent/cHJpdmF0ZS9sci91748499208135-1367jBkZjkucG5n.png' }
+                    ]
+                },
+                {
+                    id: 2,
+                    title: '省级建筑设计创新奖评选通知',
+                    category: '建筑设计、绿色建筑、智能建筑',
+                    content: '为鼓励建筑设计创新，推动行业发展，现开展2025年度省级建筑设计创新奖评选工作...',
+                    fullContent: '为深入贯彻创新驱动发展战略，促进我省建筑设计行业高质量发展，特举办2025年度省级建筑设计创新奖评选活动。本次评选重点面向绿色建筑、智能建造、既有建筑改造等创新领域。\n\n参评要求：\n1. 参评项目需在本省范围内；\n2. 具有明显的创新特色和技术突破；\n3. 在节能环保、智能化应用方面有突出表现；\n4. 具有良好的社会效益和推广价值。',
+                    date: '2025-07-10',
+                    startTime: '2025-07-15',
+                    endTime: '2025-10-15',
+                    daysLeft: 30,
+                    canRegister: true,
+                    attachments: [
+                        { name: '评选办法.pdf', type: 'pdf', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/pdf/rules.pdf' },
+                        { name: '申报指南.jpg', type: 'image', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/gif/15-13-22-874_512.gif' }
+                    ]
+                },
+                {
+                    id: 3,
+                    title: '绿色建筑技术应用奖申报',
+                    category: '绿色建筑、节能技术、可再生能源',
+                    content: '为推动绿色建筑技术发展，现启动绿色建筑技术应用奖申报工作...',
+                    fullContent: '为响应国家双碳战略目标，推动绿色建筑技术创新发展，特启动2025年度绿色建筑技术应用奖申报工作。本次申报聚焦绿色建材、节能技术、可再生能源利用、建筑智能化等关键技术领域。\n\n申报范围包括：\n1. 新建绿色建筑项目；\n2. 既有建筑绿色改造项目；\n3. 绿色建筑技术应用示范项目；\n4. 绿色建筑相关技术创新成果。',
+                    date: '2025-07-05',
+                    startTime: '2025-07-10',
+                    endTime: '2025-11-30',
+                    daysLeft: 45,
+                    canRegister: true,
+                    attachments: [
+                        { name: '绿色建筑评价标准.png', type: 'image', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/key_2d/land_grass04_1756179583067-2103.png' },
+                        { name: '技术要求.docx', type: 'doc', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/doc/requirements.docx' },
+                        { name: '申报表格.pdf', type: 'pdf', url: 'https://hpi-hub.tos-cn-beijing.volces.com/static/pdf/application.pdf' }
+                    ]
+                }
+            ];
+        }
+        
+        // 保存通知数据到localStorage
+        function saveNotifications() {
+            localStorage.setItem('awardNotifications', JSON.stringify(notifications));
+        }
+        
+        let awardProjects = [];
+        async function fetchAwardProjects(){
+            try {
+                const { data, error } = await Supa.client.from('awards').select('*').order('created_at', { ascending: false });
+                awardProjects = (!error && Array.isArray(data)) ? data : [];
+            } catch (e) { awardProjects = []; }
+        }
+        
+        let currentNotificationIndex = 0;
+        let subItemCount = 0;
+        let isCarouselView = true;
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', async function() {
+            initNotifications();
+            await fetchAwardProjects();
+            renderAwardProjects();
+            initEventListeners();
+        });
+        
+        // 初始化通知轮播
+        function initNotifications() {
+            renderNotifications();
+        }
+        
+        // 渲染通知
+        function renderNotifications() {
+            const track = document.getElementById('notificationTrack');
+            const indicator = document.getElementById('noticeIndicator');
+            
+            if (isCarouselView) {
+                // 轮播视图 - 每次显示2个通知，横向对齐
+                const totalPages = Math.ceil(notifications.length / 2);
+                const currentPage = Math.floor(currentNotificationIndex / 2) + 1;
+                
+                // 清空容器
+                track.innerHTML = '';
+                
+                // 创建固定的 grid 容器确保横向对齐
+                const gridContainer = document.createElement('div');
+                gridContainer.className = 'grid grid-cols-1 md:grid-cols-2 gap-4 w-full';
+                
+                // 显示当前页的2个通知
+                const startIndex = currentNotificationIndex;
+                const endIndex = Math.min(startIndex + 2, notifications.length);
+                
+                for (let i = startIndex; i < endIndex; i++) {
+                    const notice = notifications[i];
+                    const daysLabel = getDaysLeftClass(notice.daysLeft);
+                    
+                    const noticeCard = document.createElement('div');
+                    noticeCard.className = 'p-3 cursor-pointer hover:bg-white/5 transition-colors rounded-lg border border-white/10';
+                    noticeCard.onclick = () => showNoticeDetail(notice.id);
+                    noticeCard.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-1.5">
+                                    <span class="px-2 py-0.5 rounded text-xs glass mr-2">${notice.canRegister ? '进行中' : '已结束'}</span>
+                                    <span class="px-2 py-0.5 rounded text-xs ${daysLabel}">
+                                        剩余${notice.daysLeft}天
+                                    </span>
+                                </div>
+                                <h4 class="text-sm font-bold mb-1.5 line-clamp-2">${notice.title}</h4>
+                                <p class="text-gray-300 text-xs mb-1.5 line-clamp-2">${notice.content}</p>
+                                <div class="flex items-center text-xs text-gray-400">
+                                    <i class="fa fa-calendar mr-1"></i>
+                                    <span>${notice.date}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right text-xs mt-2 flex items-center justify-end opacity-80 hover:opacity-100 transition-opacity">
+                            <i class="fa fa-eye mr-1 text-gray-400"></i><span class="text-white">点击查看详情</span>
+                        </div>
+                    `;
+                    gridContainer.appendChild(noticeCard);
+                }
+                
+                // 如果只有1个通知，添加空占位符保持布局
+                if (endIndex - startIndex === 1) {
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'hidden md:block';
+                    gridContainer.appendChild(placeholder);
+                }
+                
+                track.appendChild(gridContainer);
+                
+                // 更新页码指示器
+                if (indicator && notifications.length > 2) {
+                    indicator.textContent = `${currentPage} / ${totalPages}`;
+                } else if (indicator) {
+                    indicator.textContent = '';
+                }
+            } else {
+                // 表格视图保持不变
+                track.innerHTML = `
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-white/20">
+                                    <th class="text-left py-3 px-4">通知标题</th>
+                                    <th class="text-left py-3 px-4">发布日期</th>
+                                    <th class="text-left py-3 px-4">剩余天数</th>
+                                    <th class="text-left py-3 px-4">状态</th>
+                                    <th class="text-center py-3 px-4">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${notifications.map(notice => `
+                                    <tr class="border-b border-white/10 hover:bg-white/10 transition-all cursor-pointer" onclick="showNoticeDetail(${notice.id})">
+                                        <td class="py-3 px-4">${notice.title}</td>
+                                        <td class="py-3 px-4">${notice.date}</td>
+                                        <td class="py-3 px-4">
+                                            <span class="px-2 py-1 rounded-full text-xs ${getDaysLeftClass(notice.daysLeft)}">
+                                                剩余${notice.daysLeft}天
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-4">
+                                            ${notice.canRegister ? '<span class="text-green-400">开启报名</span>' : '<span class="text-gray-400">已关闭</span>'}
+                                        </td>
+                                        <td class="py-3 px-4 text-center">
+                                            <button class="px-3 py-1 rounded-lg glass hover:bg-white/20 transition-all text-sm">
+                                                查看详情
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+        }
+        
+        // 获取剩余天数样式
+        function getDaysLeftClass(days) {
+            if (days <= 7) return 'bg-red-500 text-white';
+            if (days <= 30) return 'bg-orange-500 text-white';
+            return 'bg-green-500 text-white';
+        }
+        
+        // 渲染获奖项目
+        function renderAwardProjects() {
+            const container = document.getElementById('awardProjects');
+            
+            container.innerHTML = awardProjects.map((project, index) => `
+                <div class="relative group cursor-pointer" onclick="showProjectDetail(${project.id})">
+                    <div class="glass rounded-lg overflow-hidden h-full hover:transform hover:scale-105 transition-all duration-300">
+                        <!-- 图片部分：固定高度48（占卡片约一半） -->
+                        <div class="h-48 overflow-hidden">
+                            <img src="${project.image || project.coverImage || project.cover_image || ''}" alt="${project.title || project.name}" class="w-full h-full object-cover">
+                        </div>
+                        <!-- 文字描述部分：增加留白，缩小字体 -->
+                        <div class="p-5 space-y-2">
+                            <h4 class="font-bold text-base mb-3">${project.title || project.name}</h4>
+                            <div class="text-xs text-gray-300 space-y-1.5">
+                                <p>奖项：${project.category || project.subItem || ''}</p>
+                                <p>名次：${project.rank}</p>
+                                <p>年份：${project.year}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 奖项管理按钮
+            document.getElementById('awardManagementBtn').addEventListener('click', function() {
+                window.location.href = 'Int_tec_management.html';
+            });
+            
+            // 通知相关按钮
+            document.getElementById('prevNotice').addEventListener('click', function() {
+                currentNotificationIndex = Math.max(0, currentNotificationIndex - 2);
+                renderNotifications();
+            });
+            
+            document.getElementById('nextNotice').addEventListener('click', function() {
+                currentNotificationIndex = Math.min(notifications.length - 2, currentNotificationIndex + 2);
+                if (currentNotificationIndex < 0) currentNotificationIndex = 0;
+                renderNotifications();
+            });
+            
+            document.getElementById('toggleViewBtn').addEventListener('click', function() {
+                isCarouselView = !isCarouselView;
+                renderNotifications();
+            });
+            
+            document.getElementById('addNoticeBtn').addEventListener('click', function() {
+                document.getElementById('addNoticeFormModal').classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            document.getElementById('manageNoticeBtn').addEventListener('click', function() {
+                openManageNotificationsModal();
+            });
+            
+            document.getElementById('allNoticesBtn').addEventListener('click', function() {
+                showToast('全部通知功能开发中...');
+            });
+            
+            document.getElementById('downloadBtn').addEventListener('click', function() {
+                showToast('下载通知功能开发中...');
+            });
+            
+            // 加载更多按钮
+            document.getElementById('loadMoreBtn').addEventListener('click', function() {
+                showToast('加载更多功能开发中...');
+            });
+            
+            // 模态框关闭按钮
+            document.getElementById('closeAwardModal').addEventListener('click', closeAwardModal);
+            document.getElementById('awardOverlay').addEventListener('click', closeAwardModal);
+            document.getElementById('cancelAwardBtn').addEventListener('click', closeAwardModal);
+            
+            document.getElementById('closeNoticeDetailModal').addEventListener('click', closeNoticeDetailModal);
+            document.getElementById('noticeDetailOverlay').addEventListener('click', closeNoticeDetailModal);
+            
+            document.getElementById('closeProjectDetailModal').addEventListener('click', closeProjectDetailModal);
+            document.getElementById('projectDetailOverlay').addEventListener('click', closeProjectDetailModal);
+            
+            // 表单提交
+            document.getElementById('awardForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                var title = document.getElementById('awardTitle').value;
+                var department = document.getElementById('awardDepartment').value;
+                if (window.Common) {
+                    var check = Common.validateSignup(department, title);
+                    if (!check.ok) { showToast(check.message, 'error'); return; }
+                }
+                submitAward();
+            });
+            
+            // 添加子项按钮
+            document.getElementById('addSubItemBtn').addEventListener('click', addSubItem);
+            
+            // 新增通知模态框相关事件
+            document.getElementById('closeAddNoticeFormModal').addEventListener('click', closeAddNoticeFormModal);
+            document.getElementById('addNoticeFormOverlay').addEventListener('click', closeAddNoticeFormModal);
+            document.getElementById('cancelAddNoticeForm').addEventListener('click', closeAddNoticeFormModal);
+            
+            // 新增通知表单提交
+            document.getElementById('addNoticeForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitNotice();
+            });
+            
+            // 增加子项类别按钮
+            document.getElementById('addCategoryBtn').addEventListener('click', addNoticeCategory);
+            
+            // 附件上传处理
+            document.getElementById('noticeAttachments').addEventListener('change', handleAttachments);
+            
+            // 管理通知模态框相关事件
+            document.getElementById('closeManageNotificationsModal').addEventListener('click', closeManageNotificationsModal);
+            document.getElementById('manageNotificationsOverlay').addEventListener('click', closeManageNotificationsModal);
+            
+            // 通知搜索功能
+            document.getElementById('notificationSearchInput').addEventListener('input', function(e) {
+                renderManageNotificationTable(e.target.value);
+            });
+            
+            // 编辑通知模态框相关事件
+            document.getElementById('closeEditNoticeModal').addEventListener('click', closeEditNoticeModal);
+            document.getElementById('editNoticeOverlay').addEventListener('click', closeEditNoticeModal);
+            document.getElementById('cancelEditNotice').addEventListener('click', closeEditNoticeModal);
+            
+            // 编辑通知表单提交
+            document.getElementById('editNoticeForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitEditNotice();
+            });
+        }
+        
+        // 添加子项
+        function addSubItem() {
+            subItemCount++;
+            const container = document.getElementById('subItemsList');
+            const subItemDiv = document.createElement('div');
+            subItemDiv.className = 'grid grid-cols-1 md:grid-cols-3 gap-2 p-4 glass rounded-lg';
+            subItemDiv.innerHTML = `
+                <input type="text" placeholder="子项类别" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                <input type="text" placeholder="申报专业" class="px-3 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                <div class="flex items-center gap-2">
+                    <input type="text" placeholder="申报人" class="flex-1 px-3 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                    <button type="button" onclick="this.closest('.grid').remove()" class="p-2 rounded-lg bg-red-500/80 hover:bg-red-500 transition-all">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            `;
+            container.appendChild(subItemDiv);
+        }
+        
+        // 关闭奖项模态框
+        function closeAwardModal() {
+            document.getElementById('awardModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('awardForm').reset();
+            document.getElementById('subItemsList').innerHTML = '';
+        }
+        
+        // 关闭通知详情模态框
+        function closeNoticeDetailModal() {
+            document.getElementById('noticeDetailModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        
+        // 关闭项目详情模态框
+        function closeProjectDetailModal() {
+            document.getElementById('projectDetailModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        
+        // 提交奖项申报
+        function submitAward() {
+            const title = document.getElementById('awardTitle').value;
+            const department = document.getElementById('awardDepartment').value;
+            
+            if (!title || !department) {
+                showToast('请填写必要信息', 'error');
+                return;
+            }
+            
+            // 模拟提交
+            showToast('奖项申报提交成功！');
+            closeAwardModal();
+        }
+        
+        // 显示通知详情
+        function showNoticeDetail(noticeId) {
+            const notice = notifications.find(n => n.id === noticeId);
+            if (!notice) return;
+            
+            const content = document.getElementById('noticeDetailContent');
+            
+            // 分离附件：先显示可下载的附件，最后显示图片预览
+            const downloadAttachments = notice.attachments.filter(att => att.type !== 'image');
+            const imageAttachments = notice.attachments.filter(att => att.type === 'image');
+            
+            // 构建附件HTML：先显示可下载附件，最后显示图片
+            let attachmentsHtml = '';
+            
+            // 先显示可下载的附件
+            if (downloadAttachments.length > 0) {
+                downloadAttachments.forEach(attachment => {
+                    const iconClass = attachment.type === 'pdf' ? 'fa-file-pdf-o text-red-400' : 
+                                    attachment.type === 'doc' || attachment.type === 'docx' ? 'fa-file-word-o text-blue-400' : 
+                                    'fa-file-o text-gray-400';
+                    attachmentsHtml += `
+                        <div class="glass rounded-lg p-4 hover:bg-white/10 transition-all">
+                            <div class="flex items-center mb-3">
+                                <i class="fa ${iconClass} text-2xl mr-3 text-yellow-400"></i>
+                                <div class="flex-1">
+                                    <p class="font-medium">${attachment.name}</p>
+                                    <p class="text-xs text-gray-400">${attachment.type.toUpperCase()} 文件</p>
+                                </div>
+                            </div>
+                            <button onclick="downloadFile('${attachment.url}', '${attachment.name}')" 
+                                    class="w-full px-4 py-2 rounded-lg bg-secondary hover:bg-yellow-600 transition-all text-sm">
+                                <i class="fa fa-download mr-2"></i>下载文件
+                            </button>
+                        </div>
+                    `;
+                });
+            }
+            
+            // 最后显示图片预览
+            if (imageAttachments.length > 0) {
+                imageAttachments.forEach(attachment => {
+                    attachmentsHtml += `
+                        <div class="glass rounded-lg overflow-hidden hover:bg-white/10 transition-all">
+                            <div class="aspect-video bg-gray-800 flex items-center justify-center cursor-pointer" 
+                                 onclick="previewImage('${attachment.url}', '${attachment.name}')">
+                                <img src="${attachment.url}" class="w-full h-full object-cover" alt="${attachment.name}">
+                            </div>
+                            <div class="p-3">
+                                <p class="font-medium text-sm mb-2">${attachment.name}</p>
+                                <button onclick="downloadFile('${attachment.url}', '${attachment.name}')" 
+                                        class="w-full px-3 py-2 rounded-lg bg-secondary hover:bg-yellow-600 transition-all text-sm">
+                                    <i class="fa fa-download mr-2"></i>下载图片
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            
+            // 如果没有任何附件
+            if (notice.attachments.length === 0) {
+                attachmentsHtml = '<p class="text-gray-400">无附件</p>';
+            }
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <!-- 通知主题 -->
+                    <div>
+                        <h3 class="text-3xl font-bold mb-4 flex items-center">
+                            <i class="fa fa-bullhorn mr-3 text-yellow-400"></i>
+                            ${notice.title}
+                        </h3>
+                        <div class="flex items-center gap-4 text-gray-400">
+                            <span><i class="fa fa-calendar mr-2 text-yellow-400"></i>发布日期：${notice.date}</span>
+                            <span class="px-3 py-1 rounded-full text-sm ${getDaysLeftClass(notice.daysLeft)}">
+                                <i class="fa fa-clock-o mr-1"></i>剩余${notice.daysLeft}天
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- 奖项子项类别 -->
+                    <div class="border-t border-white/20 pt-6">
+                        <h4 class="text-xl font-bold mb-3 flex items-center">
+                            <i class="fa fa-tags mr-2 text-yellow-400"></i>
+                            奖项子项类别
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${notice.category.split('、').map(cat => `
+                                <span class="px-3 py-1 rounded-full bg-secondary/20 text-yellow-300 border border-yellow-400/30">
+                                    ${cat}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <!-- 通知简介 -->
+                    <div class="border-t border-white/20 pt-6">
+                        <h4 class="text-xl font-bold mb-3 flex items-center">
+                            <i class="fa fa-info-circle mr-2 text-yellow-400"></i>
+                            通知简介
+                        </h4>
+                        <p class="text-gray-300 leading-relaxed bg-white/5 p-4 rounded-lg">${notice.content}</p>
+                    </div>
+                    
+                    <!-- 奖项主体（详细内容） -->
+                    <div class="border-t border-white/20 pt-6">
+                        <h4 class="text-xl font-bold mb-3 flex items-center">
+                            <i class="fa fa-file-text-o mr-2 text-yellow-400"></i>
+                            奖项主体（详细内容）
+                        </h4>
+                        <div class="text-gray-300 leading-relaxed bg-white/5 p-4 rounded-lg whitespace-pre-line">
+                            ${notice.fullContent}
+                        </div>
+                    </div>
+                    
+                    <!-- 附件内容 -->
+                    <div class="border-t border-white/20 pt-6">
+                        <h4 class="text-xl font-bold mb-4 flex items-center">
+                            <i class="fa fa-paperclip mr-2 text-yellow-400"></i>
+                            附件内容
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${attachmentsHtml}
+                        </div>
+                    </div>
+                    
+                    <!-- 申报时间范围 -->
+                    <div class="border-t border-white/20 pt-6">
+                        <h4 class="text-xl font-bold mb-4 flex items-center">
+                            <i class="fa fa-calendar-check-o mr-2 text-yellow-400"></i>
+                            申报时间范围
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="glass rounded-lg p-4">
+                                <div class="flex items-center mb-2">
+                                    <i class="fa fa-play-circle text-green-400 mr-2"></i>
+                                    <span class="text-sm text-gray-400">申报开始时间</span>
+                                </div>
+                                <p class="text-lg font-bold">${notice.startTime || notice.date}</p>
+                            </div>
+                            <div class="glass rounded-lg p-4">
+                                <div class="flex items-center mb-2">
+                                    <i class="fa fa-exclamation-triangle text-red-400 mr-2"></i>
+                                    <span class="text-sm text-gray-400">申报截止时间</span>
+                                </div>
+                                <p class="text-lg font-bold text-red-400">${notice.endTime || '未设定'}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 操作按钮 -->
+                    <div class="flex justify-between items-center pt-6 border-t border-white/20">
+                        <div class="text-sm text-gray-400">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            如有疑问，请联系现代院技术管理部门
+                        </div>
+                        ${notice.canRegister ? 
+                            '<button class="px-8 py-3 rounded-lg bg-secondary hover:bg-yellow-600 transition-all font-bold text-lg"><i class="fa fa-hand-paper-o mr-2"></i>立即报名</button>' : 
+                            '<button class="px-8 py-3 rounded-lg glass text-gray-400 cursor-not-allowed" disabled><i class="fa fa-times-circle mr-2"></i>报名已结束</button>'
+                        }
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('noticeDetailModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 显示项目详情
+        function showProjectDetail(projectId) {
+            const project = awardProjects.find(p => p.id === projectId);
+            if (!project) return;
+            
+            const content = document.getElementById('projectDetailContent');
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex justify-center">
+                        <img src="${project.image}" alt="${project.title}" class="max-w-full h-auto rounded-lg shadow-2xl">
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-3xl font-bold mb-4">${project.title}</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-gray-300">
+                            <div class="glass rounded-lg p-4">
+                                <p class="text-sm text-gray-400 mb-1">奖项类别</p>
+                                <p class="text-lg font-bold">${project.category}</p>
+                            </div>
+                            <div class="glass rounded-lg p-4">
+                                <p class="text-sm text-gray-400 mb-1">获奖名次</p>
+                                <p class="text-lg font-bold text-secondary">${project.rank}</p>
+                            </div>
+                            <div class="glass rounded-lg p-4">
+                                <p class="text-sm text-gray-400 mb-1">获奖年份</p>
+                                <p class="text-lg font-bold">${project.year}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-white/20 pt-6">
+                        <h4 class="text-xl font-bold mb-3">项目介绍</h4>
+                        <p class="text-gray-300 leading-relaxed">
+                            该项目凭借其创新的设计理念和出色的技术实现，在众多参赛作品中脱颖而出，
+                            获得了评审团的一致好评。项目采用了先进的设计方法和技术手段，
+                            充分体现了现代院在设计领域的专业水准和创新能力。
+                        </p>
+                    </div>
+                    
+                    <div class="flex justify-center">
+                        <button class="px-8 py-3 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-share-alt mr-2"></i>分享项目
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('projectDetailModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭新增通知模态框
+        function closeAddNoticeFormModal() {
+            document.getElementById('addNoticeFormModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('addNoticeForm').reset();
+            document.getElementById('categoriesList').innerHTML = `
+                <div class="flex items-center gap-2">
+                    <input type="text" placeholder="子项类别" class="flex-1 px-3 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary category-input">
+                    <button type="button" onclick="this.closest('div').remove()" class="p-2 rounded-lg bg-red-500/80 hover:bg-red-500 transition-all">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            `;
+            document.getElementById('attachmentsList').innerHTML = '';
+        }
+        
+        // 增加通知类别
+        function addNoticeCategory() {
+            const container = document.getElementById('categoriesList');
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'flex items-center gap-2';
+            categoryDiv.innerHTML = `
+                <input type="text" placeholder="子项类别" class="flex-1 px-3 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary category-input">
+                <button type="button" onclick="this.closest('div').remove()" class="p-2 rounded-lg bg-red-500/80 hover:bg-red-500 transition-all">
+                    <i class="fa fa-times"></i>
+                </button>
+            `;
+            container.appendChild(categoryDiv);
+        }
+        
+        // 处理附件上传
+        function handleAttachments(event) {
+            const files = event.target.files;
+            const attachmentsList = document.getElementById('attachmentsList');
+            attachmentsList.innerHTML = '';
+            
+            Array.from(files).forEach(file => {
+                if (file.size > 30 * 1024 * 1024) {
+                    showToast(`文件 ${file.name} 超过30MB限制`, 'error');
+                    return;
+                }
+                
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'flex items-center justify-between p-2 rounded glass text-sm';
+                fileDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fa fa-file-o mr-2"></i>
+                        <span>${file.name}</span>
+                        <span class="text-gray-400 ml-2">(${(file.size / 1024).toFixed(1)} KB)</span>
+                    </div>
+                `;
+                attachmentsList.appendChild(fileDiv);
+            });
+        }
+        
+        // 提交通知
+        function submitNotice() {
+            // 收集表单数据
+            const title = document.getElementById('noticeTitle').value.trim();
+            const summary = document.getElementById('noticeSummary').value.trim();
+            const content = document.getElementById('noticeContent').value.trim();
+            const startDate = document.getElementById('noticeStartDate').value;
+            const endDate = document.getElementById('noticeEndDate').value;
+            const enableRegistration = document.getElementById('enableRegistration').checked;
+            
+            // 验证必填字段
+            if (!title || !summary || !content) {
+                showToast('请填写必要信息', 'error');
+                return;
+            }
+            
+            // 收集子项类别
+            const categoryInputs = document.querySelectorAll('.category-input');
+            const categories = [];
+            categoryInputs.forEach(input => {
+                const value = input.value.trim();
+                if (value) categories.push(value);
+            });
+            const category = categories.join('、') || '未分类';
+            
+            // 计算剩余天数
+            let daysLeft = 0;
+            if (endDate) {
+                const today = new Date();
+                const end = new Date(endDate);
+                daysLeft = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+            }
+            
+            // 处理附件（保存文件名）
+            const attachmentFiles = document.getElementById('noticeAttachments').files;
+            const attachments = [];
+            Array.from(attachmentFiles).forEach(file => {
+                const fileType = file.type.startsWith('image/') ? 'image' : 
+                               file.name.endsWith('.pdf') ? 'pdf' : 'doc';
+                attachments.push({
+                    name: file.name,
+                    type: fileType,
+                    url: '#' // 实际项目中应上传到服务器获取真实URL
+                });
+            });
+            
+            // 创建新通知对象
+            const newNotification = {
+                id: Date.now(), // 使用时间戳作为唯一ID
+                title: title,
+                category: category,
+                content: summary,
+                fullContent: content,
+                date: new Date().toISOString().split('T')[0],
+                startTime: startDate || new Date().toISOString().split('T')[0],
+                endTime: endDate || '',
+                daysLeft: daysLeft,
+                canRegister: enableRegistration,
+                attachments: attachments
+            };
+            
+            // 添加到通知数组
+            notifications.push(newNotification);
+            
+            // 保存到localStorage
+            saveNotifications();
+            
+            // 刷新显示
+            renderNotifications();
+            
+            // 如果管理模态框打开，也刷新管理列表
+            if (!document.getElementById('manageNotificationsModal').classList.contains('hidden')) {
+                renderManageNotificationTable();
+            }
+            
+            // 关闭模态框
+            closeAddNoticeFormModal();
+            
+            // 显示成功提示
+            showToast('通知创建成功！');
+        }
+        
+        // 图片预览功能
+        function previewImage(imageUrl, imageName) {
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 z-[70] bg-black/80 flex items-center justify-center p-4';
+            modal.innerHTML = `
+                <div class="relative max-w-6xl max-h-[90vh]">
+                    <button onclick="this.closest('.fixed').remove()" 
+                            class="absolute -top-12 right-0 p-3 rounded-full bg-white/20 hover:bg-white/30 text-white">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                    <img src="${imageUrl}" class="w-full h-auto max-h-[85vh] object-contain rounded-lg" alt="${imageName}">
+                    <div class="text-center text-white mt-4 text-lg">${imageName}</div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            document.body.style.overflow = 'hidden';
+            
+            // 点击背景关闭
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.remove();
+                    document.body.style.overflow = '';
+                }
+            });
+        }
+        
+        // 文件下载功能
+        function downloadFile(fileUrl, fileName) {
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.download = fileName;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showToast(`开始下载：${fileName}`);
+        }
+        
+        // 打开管理通知模态框
+        function openManageNotificationsModal() {
+            renderManageNotificationTable();
+            document.getElementById('manageNotificationsModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭管理通知模态框
+        function closeManageNotificationsModal() {
+            document.getElementById('manageNotificationsModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('notificationSearchInput').value = '';
+        }
+        
+        // 渲染管理通知表格
+        function renderManageNotificationTable(searchTerm = '') {
+            const tbody = document.getElementById('manageNotificationTableBody');
+            tbody.innerHTML = '';
+            
+            let filteredNotifications = notifications;
+            
+            // 应用搜索过滤
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                filteredNotifications = notifications.filter(notice => 
+                    notice.title.toLowerCase().includes(term) || 
+                    notice.content.toLowerCase().includes(term) ||
+                    (notice.fullContent && notice.fullContent.toLowerCase().includes(term))
+                );
+            }
+            
+            if (filteredNotifications.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-gray-400">暂无通知</td></tr>';
+                return;
+            }
+            
+            filteredNotifications.forEach(notice => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-white/10 hover:bg-white/5 transition-colors';
+                
+                const daysLabel = getDaysLeftClass(notice.daysLeft);
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">
+                        <div class="font-medium">${notice.title}</div>
+                        <div class="text-xs text-gray-400 mt-1">${notice.content.substring(0, 50)}...</div>
+                    </td>
+                    <td class="py-3 px-4">${notice.date}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs ${daysLabel}">
+                            剩余${notice.daysLeft}天
+                        </span>
+                    </td>
+                    <td class="py-3 px-4">
+                        ${notice.canRegister ? '<span class="text-green-400">开启报名</span>' : '<span class="text-gray-400">已关闭</span>'}
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="editNotificationById(${notice.id})" class="px-3 py-1 text-xs rounded bg-yellow-500/80 hover:bg-yellow-500 transition-all mr-2">
+                            <i class="fa fa-edit mr-1"></i>编辑
+                        </button>
+                        <button onclick="deleteNotificationById(${notice.id})" class="px-3 py-1 text-xs rounded bg-red-500/80 hover:bg-red-500 transition-all">
+                            <i class="fa fa-trash mr-1"></i>删除
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 编辑通知
+        function editNotificationById(noticeId) {
+            const notice = notifications.find(n => n.id === noticeId);
+            if (!notice) return;
+            
+            // 填充表单
+            document.getElementById('editNoticeId').value = notice.id;
+            document.getElementById('editNoticeTitle').value = notice.title;
+            document.getElementById('editNoticeCategory').value = notice.category || '';
+            document.getElementById('editNoticeSummary').value = notice.content;
+            document.getElementById('editNoticeContent').value = notice.fullContent || notice.content;
+            document.getElementById('editNoticeStartDate').value = notice.startTime || notice.date;
+            document.getElementById('editNoticeEndDate').value = notice.endTime || '';
+            document.getElementById('editEnableRegistration').checked = notice.canRegister;
+            
+            // 打开编辑模态框
+            document.getElementById('editNoticeModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 关闭编辑通知模态框
+        function closeEditNoticeModal() {
+            document.getElementById('editNoticeModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('editNoticeForm').reset();
+        }
+        
+        // 提交编辑通知
+        function submitEditNotice() {
+            const noticeId = parseInt(document.getElementById('editNoticeId').value);
+            const notice = notifications.find(n => n.id === noticeId);
+            
+            if (!notice) {
+                showToast('通知不存在', 'error');
+                return;
+            }
+            
+            // 更新通知数据
+            notice.title = document.getElementById('editNoticeTitle').value;
+            notice.category = document.getElementById('editNoticeCategory').value;
+            notice.content = document.getElementById('editNoticeSummary').value;
+            notice.fullContent = document.getElementById('editNoticeContent').value;
+            notice.startTime = document.getElementById('editNoticeStartDate').value;
+            notice.endTime = document.getElementById('editNoticeEndDate').value;
+            notice.canRegister = document.getElementById('editEnableRegistration').checked;
+            
+            // 重新计算剩余天数
+            if (notice.endTime) {
+                notice.daysLeft = Math.ceil((new Date(notice.endTime) - new Date()) / (1000 * 60 * 60 * 24));
+            }
+            
+            // 保存到localStorage
+            saveNotifications();
+            
+            // 刷新显示
+            renderNotifications();
+            renderManageNotificationTable();
+            
+            // 关闭模态框
+            closeEditNoticeModal();
+            
+            // 显示成功提示
+            showToast('通知更新成功！');
+        }
+        
+        // 删除通知
+        function deleteNotificationById(noticeId) {
+            if (!confirm('确定要删除这条通知吗？删除后将无法恢复。')) {
+                return;
+            }
+            
+            const index = notifications.findIndex(n => n.id === noticeId);
+            if (index !== -1) {
+                notifications.splice(index, 1);
+                
+                // 保存到localStorage
+                saveNotifications();
+                
+                // 刷新显示
+                renderNotifications();
+                renderManageNotificationTable();
+                
+                // 显示成功提示
+                showToast('通知删除成功！');
+            } else {
+                showToast('通知不存在', 'error');
+            }
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-6 py-3 rounded-lg z-50 transition-all transform translate-x-full opacity-0`;
+            
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

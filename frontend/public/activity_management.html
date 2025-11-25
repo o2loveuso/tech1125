@@ -1,0 +1,2509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>活动管理</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js for charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <script src="assets/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/supabase.js"></script>
+    
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b',
+                        dark: {
+                            100: '#1e293b',
+                            200: '#0f172a',
+                            300: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Microsoft YaHei', 'Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            /* 玻璃拟态样式 */
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            .glass-hover {
+                transition: all 0.3s ease;
+            }
+            .glass-hover:hover {
+                background: rgba(255, 255, 255, 0.25);
+                transform: scale(1.02);
+            }
+            
+            /* 背景blob */
+            .blob {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(80px);
+                opacity: 0.2;
+                z-index: -1;
+            }
+            
+            /* 自定义滚动条 */
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+            
+            /* 修复下拉菜单样式 */
+            select {
+                background-color: #374151 !important;
+                color: white !important;
+                padding: 8px 12px;
+                border-radius: 6px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+            }
+            
+            select option {
+                background-color: #374151 !important;
+                color: white !important;
+                padding: 8px;
+            }
+            
+            select option:hover,
+            select option:checked {
+                background-color: #4b5563 !important;
+                color: white !important;
+            }
+            
+            /* 拖拽上传区域样式 */
+            .drop-zone {
+                border: 2px dashed rgba(255, 255, 255, 0.3);
+                border-radius: 8px;
+                padding: 20px;
+                text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                position: relative;
+                background: rgba(255, 255, 255, 0.05);
+            }
+            
+            .drop-zone:hover {
+                border-color: #3b82f6;
+                background: rgba(59, 130, 246, 0.1);
+            }
+            
+            .drop-zone.dragover {
+                border-color: #3b82f6;
+                background: rgba(59, 130, 246, 0.2);
+                transform: scale(1.02);
+            }
+            
+            /* 文件预览网格 */
+            .file-preview-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 12px;
+                margin-top: 16px;
+            }
+            
+            .file-preview-item {
+                position: relative;
+                border-radius: 8px;
+                overflow: hidden;
+                background: rgba(255, 255, 255, 0.1);
+                transition: transform 0.2s ease;
+            }
+            
+            .file-preview-item:hover {
+                transform: scale(1.05);
+            }
+            
+            .file-preview-image {
+                width: 100%;
+                height: 120px;
+                object-fit: cover;
+            }
+            
+            .file-preview-info {
+                padding: 8px;
+                font-size: 12px;
+                color: #e5e7eb;
+                background: rgba(0, 0, 0, 0.3);
+            }
+            
+            .remove-file-btn {
+                position: absolute;
+                top: 4px;
+                right: 4px;
+                background: rgba(239, 68, 68, 0.8);
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 24px;
+                height: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s ease;
+            }
+            
+            .remove-file-btn:hover {
+                background: rgba(239, 68, 68, 1);
+            }
+        }
+    </style>
+    <style>
+        .theme-light .glass { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+        .theme-light .glass-hover:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+        .theme-light .blob { opacity: 0.12; filter: blur(80px); }
+        .theme-light select { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+        .theme-light select option { background-color: #ffffff !important; color: #0f172a !important; }
+        .theme-light .text-gray-300 { color: #374151 !important; }
+        .theme-light .text-gray-400 { color: #4b5563 !important; }
+        .animated-gradient { background: linear-gradient(135deg, #ffffff, #f6fafe, #e0f2fe, #ffffff); background-size: 400% 400%; animation: gradientShift 20s ease infinite; }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white custom-scrollbar">
+    <!-- 背景blob -->
+    <div class="blob bg-blue-500 w-96 h-96 top-0 left-0 animate-blob"></div>
+    <div class="blob bg-purple-500 w-96 h-96 bottom-0 right-0 animate-blob" style="animation-delay: -10s;"></div>
+    <div class="blob bg-pink-500 w-96 h-96 top-1/2 right-1/4 animate-blob" style="animation-delay: -5s;"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-50 glass px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-cogs text-2xl text-primary"></i>
+                <h1 class="text-xl font-bold">活动管理</h1>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <a href="activityindex.html" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-arrow-left mr-2"></i>返回活动列表
+                </a>
+                <button id="themeToggle" class="p-2 rounded-full glass hover:bg-white/20 transition-all" title="切换主题">
+                    <i id="themeIcon" class="fa fa-moon-o"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            applyThemeFromStorage();
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const next = (localStorage.getItem('theme') === 'light') ? 'dark' : 'light';
+                    setTheme(next);
+                });
+            }
+        });
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const body = document.body;
+            if (theme === 'light') {
+                html.classList.add('theme-light');
+                body.classList.remove('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                body.classList.add('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-sun-o'; }
+            } else {
+                html.classList.remove('theme-light');
+                body.classList.remove('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                body.classList.add('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-moon-o'; }
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function applyThemeFromStorage() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            setTheme(theme);
+        }
+    </script>
+    
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 搜索框 -->
+        <section class="mb-6">
+            <div class="glass rounded-2xl p-6">
+                <div class="relative">
+                    <input type="text" id="searchInput" placeholder="搜索活动主题、主讲人或主办单位" 
+                           class="w-full px-4 py-3 pr-12 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary text-white placeholder-gray-400">
+                    <i class="fa fa-search absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 功能按钮区 -->
+        <section class="mb-8">
+            <div class="glass rounded-2xl p-6">
+                <div class="flex flex-wrap gap-4 justify-between items-center">
+                    <h2 class="text-2xl font-bold">活动管理中心</h2>
+                    <div class="flex gap-4">
+                        <button id="newActivityBtn" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-plus mr-2"></i>新建活动
+                        </button>
+                        <button id="globalStatsBtn" onclick="toggleGlobalStats()" class="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 transition-all">
+                            <i class="fa fa-line-chart mr-2"></i>统计分析
+                        </button>
+                        <button onclick="exportToExcel()" class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition-all">
+                            <i class="fa fa-file-excel-o mr-2"></i>导出Excel
+                        </button>
+                        <!-- 筛选排序按钮组 -->
+                        <div class="flex gap-2 border-l border-white/20 pl-4">
+                            <button onclick="filterByStatus('all')" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all" title="全部">
+                                <i class="fa fa-list"></i>
+                            </button>
+                            <button onclick="filterByStatus('ongoing')" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all" title="进行中">
+                                <i class="fa fa-clock-o"></i>
+                            </button>
+                            <button onclick="filterByStatus('completed')" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all" title="已结束">
+                                <i class="fa fa-check-circle-o"></i>
+                            </button>
+                            <button onclick="sortByType()" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all" title="按活动类型排序">
+                                <i class="fa fa-sort"></i>
+                            </button>
+                            <button onclick="toggleView()" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all" title="切换视图">
+                                <i class="fa fa-th-large"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 全活动统计分析容器 -->
+        <section id="globalStatsContainer" class="mb-8 hidden" style="max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out;">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-2xl font-bold flex items-center">
+                        <i class="fa fa-line-chart mr-3 text-primary"></i>
+                        全活动统计分析
+                    </h3>
+                    <button onclick="toggleGlobalStats()" class="p-2 rounded-full hover:bg-white/20 transition-all">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- 统计概览 -->
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+                    <div class="p-4 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/20 text-center transform hover:scale-105 transition-all">
+                        <div class="text-4xl font-bold text-blue-400" id="globalTotalCount">0</div>
+                        <div class="text-gray-300 mt-2">活动总数</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gradient-to-br from-green-500/20 to-green-600/20 text-center transform hover:scale-105 transition-all">
+                        <div class="text-4xl font-bold text-green-400" id="globalOngoingCount">0</div>
+                        <div class="text-gray-300 mt-2">进行中</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 text-center transform hover:scale-105 transition-all">
+                        <div class="text-4xl font-bold text-yellow-400" id="globalCompletedCount">0</div>
+                        <div class="text-gray-300 mt-2">已结束</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/20 text-center transform hover:scale-105 transition-all">
+                        <div class="text-4xl font-bold text-purple-400" id="globalSignupsCount">0</div>
+                        <div class="text-gray-300 mt-2">总报名数</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-gradient-to-br from-pink-500/20 to-pink-600/20 text-center transform hover:scale-105 transition-all">
+                        <div class="text-4xl font-bold text-pink-400" id="globalAvgSignups">0</div>
+                        <div class="text-gray-300 mt-2">平均报名</div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- 饼图：活动类型分布 -->
+                    <div class="glass rounded-xl p-6 transform hover:scale-105 transition-all">
+                        <h4 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fa fa-pie-chart mr-2 text-primary"></i>
+                            活动类型分布
+                        </h4>
+                        <div style="height: 300px;">
+                            <canvas id="globalPieChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 柱状图：各部门活动数量 -->
+                    <div class="glass rounded-xl p-6 transform hover:scale-105 transition-all">
+                        <h4 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fa fa-bar-chart mr-2 text-green-400"></i>
+                            各部门活动数量
+                        </h4>
+                        <div style="height: 300px;">
+                            <canvas id="globalBarChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- 趋势图：月度活动趋势 -->
+                    <div class="glass rounded-xl p-6 transform hover:scale-105 transition-all">
+                        <h4 class="text-lg font-bold mb-4 flex items-center">
+                            <i class="fa fa-line-chart mr-2 text-yellow-400"></i>
+                            月度活动趋势
+                        </h4>
+                        <div style="height: 300px;">
+                            <canvas id="globalLineChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 详细数据表格 -->
+                <div class="mt-8 glass rounded-xl p-6">
+                    <h4 class="text-lg font-bold mb-4 flex items-center">
+                        <i class="fa fa-table mr-2 text-primary"></i>
+                        活动详细统计
+                    </h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b border-white/20">
+                                    <th class="text-left py-3 px-4">活动类型</th>
+                                    <th class="text-center py-3 px-4">数量</th>
+                                    <th class="text-center py-3 px-4">占比</th>
+                                    <th class="text-center py-3 px-4">报名人数</th>
+                                    <th class="text-center py-3 px-4">平均报名</th>
+                                </tr>
+                            </thead>
+                            <tbody id="globalStatsTableBody">
+                                <!-- 动态生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 活动列表容器 -->
+        <div id="activitiesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- 动态生成的活动卡片 -->
+        </div>
+        
+        <!-- 表格视图容器 -->
+        <div id="tableViewContainer" class="hidden mt-8">
+            <div class="glass rounded-2xl p-6">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-white/20">
+                            <th class="text-left py-3 px-4">活动主题</th>
+                            <th class="text-left py-3 px-4">类型</th>
+                            <th class="text-left py-3 px-4">主讲人</th>
+                            <th class="text-left py-3 px-4">主办单位</th>
+                            <th class="text-left py-3 px-4">活动时间</th>
+                            <th class="text-left py-3 px-4">参与人数</th>
+                            <th class="text-left py-3 px-4">状态</th>
+                            <th class="text-center py-3 px-4">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- 动态生成的表格行 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 事业部统计 -->
+        <div id="departmentStats" class="mt-8">
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-xl font-bold mb-4">事业部活动统计</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-4 rounded-lg bg-white/5 text-center">
+                        <div class="text-3xl font-bold text-blue-400" id="modernCount">0</div>
+                        <div class="text-gray-300">现代院活动</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-white/5 text-center">
+                        <div class="text-3xl font-bold text-green-400" id="testCount">0</div>
+                        <div class="text-gray-300">检测站活动</div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-white/5 text-center">
+                        <div class="text-3xl font-bold text-yellow-400" id="fangCount">0</div>
+                        <div class="text-gray-300">房科院活动</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <!-- 新建活动模态框 -->
+    <div id="createActivityModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" onclick="closeCreateModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">新建活动</h2>
+                    <button onclick="closeCreateModal()" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="activityForm" class="space-y-4">
+                    <!-- 活动类型选择 -->
+                    <div>
+                        <label class="block mb-2">活动类型 *</label>
+                        <select id="activityType" onchange="updateFormFields()" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                            <option value="">请选择活动类型</option>
+                            <option value="training">培训及讲座</option>
+                            <option value="internal">院内活动</option>
+                            <option value="external">院外活动</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 基础字段 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">活动主题</label>
+                            <input type="text" id="activityTitle" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">主办单位</label>
+                            <input type="text" id="activityOrganizer" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">活动时间</label>
+                            <input type="datetime-local" id="activityTime" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">活动地点</label>
+                            <input type="text" id="activityLocation" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    
+                    <!-- 动态字段容器 -->
+                    <div id="dynamicFields">
+                        <!-- 根据活动类型动态生成 -->
+                    </div>
+                    
+                    <!-- 文件上传区域 -->
+                    <div>
+                        <label class="block mb-2">活动海报或附件</label>
+                        <div id="fileUploadZone" class="drop-zone">
+                            <i class="fa fa-cloud-upload text-3xl mb-2 text-gray-400"></i>
+                            <p class="text-gray-300">拖拽文件到此处或点击上传</p>
+                            <p class="text-xs text-gray-400 mt-1">支持图片、PDF、Word等文件，单个文件不超过50MB</p>
+                            <input type="file" id="activityAttachments" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
+                            <button type="button" onclick="document.getElementById('activityAttachments').click()" class="mt-3 px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择文件
+                            </button>
+                        </div>
+                        <div id="filePreviewGrid" class="file-preview-grid">
+                            <!-- 文件预览将显示在这里 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 提交按钮 -->
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" onclick="closeCreateModal()" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 修改活动模态框 -->
+    <div id="editActivityModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" onclick="closeEditModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">修改活动</h2>
+                    <button onclick="closeEditModal()" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="editActivityForm" class="space-y-4">
+                    <!-- 活动类型选择 -->
+                    <div>
+                        <label class="block mb-2">活动类型 *</label>
+                        <select id="editActivityType" onchange="updateEditFormFields()" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                            <option value="">请选择活动类型</option>
+                            <option value="training">培训及讲座</option>
+                            <option value="internal">院内活动</option>
+                            <option value="external">院外活动</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 基础字段 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">活动主题</label>
+                            <input type="text" id="editActivityTitle" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">主办单位</label>
+                            <input type="text" id="editActivityOrganizer" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">活动时间</label>
+                            <input type="datetime-local" id="editActivityTime" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                        <div>
+                            <label class="block mb-2">活动地点</label>
+                            <input type="text" id="editActivityLocation" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    
+                    <!-- 动态字段容器 -->
+                    <div id="editDynamicFields">
+                        <!-- 根据活动类型动态生成 -->
+                    </div>
+                    
+                    <!-- 文件上传区域 -->
+                    <div>
+                        <label class="block mb-2">活动海报或附件</label>
+                        <div id="editFileUploadZone" class="drop-zone">
+                            <i class="fa fa-cloud-upload text-3xl mb-2 text-gray-400"></i>
+                            <p class="text-gray-300">拖拽文件到此处或点击上传</p>
+                            <p class="text-xs text-gray-400 mt-1">支持图片、PDF、Word等文件，单个文件不超过50MB</p>
+                            <input type="file" id="editActivityAttachments" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
+                            <button type="button" onclick="document.getElementById('editActivityAttachments').click()" class="mt-3 px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择文件
+                            </button>
+                        </div>
+                        <div id="editFilePreviewGrid" class="file-preview-grid">
+                            <!-- 文件预览将显示在这里 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 提交按钮 -->
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" onclick="closeEditModal()" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计分析模态框 -->
+    <div id="statsModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" onclick="closeStatsModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">活动统计分析</h2>
+                    <button onclick="closeStatsModal()" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div id="statsContent">
+                    <!-- 统计内容动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 归档管理模态框 -->
+    <div id="archiveModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" onclick="closeArchiveModal()"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">归档管理</h2>
+                    <button onclick="closeArchiveModal()" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <div id="archiveContent" class="space-y-6">
+                    <!-- 活动基本信息 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-xl font-bold mb-2" id="archiveActivityTitle"></h3>
+                        <div class="text-gray-300" id="archiveActivityInfo"></div>
+                    </div>
+                    
+                    <!-- 生成签到表 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-3 flex items-center">
+                            <i class="fa fa-file-excel-o mr-2 text-green-400"></i>
+                            生成Excel签到表
+                        </h3>
+                        <p class="text-gray-300 mb-3 text-sm">根据报名情况生成签到表，包含活动信息、报名部门、姓名和签到栏</p>
+                        <button onclick="generateSignInSheet()" class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition-all">
+                            <i class="fa fa-download mr-2"></i>生成并下载签到表
+                        </button>
+                    </div>
+                    
+                    <!-- 活动现场照片上传 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-3 flex items-center">
+                            <i class="fa fa-camera mr-2 text-blue-400"></i>
+                            活动现场照片或附件
+                        </h3>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center mb-3">
+                            <input type="file" id="eventPhotos" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
+                            <button type="button" onclick="document.getElementById('eventPhotos').click()" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择文件
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持图片和文档，单次可选多个文件</p>
+                        </div>
+                        <div id="eventPhotosPreview" class="grid grid-cols-4 gap-2"></div>
+                    </div>
+                    
+                    <!-- 活动后文件上传 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-3 flex items-center">
+                            <i class="fa fa-file-image-o mr-2 text-purple-400"></i>
+                            活动后文件（如签到表实际照片）
+                        </h3>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center mb-3">
+                            <input type="file" id="postEventFiles" multiple accept="image/*,.pdf,.doc,.docx" class="hidden">
+                            <button type="button" onclick="document.getElementById('postEventFiles').click()" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择文件
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持图片和文档，单次可选多个文件</p>
+                        </div>
+                        <div id="postEventFilesPreview" class="grid grid-cols-4 gap-2"></div>
+                    </div>
+                    
+                    <!-- 活动记录文本 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-3 flex items-center">
+                            <i class="fa fa-pencil mr-2 text-yellow-400"></i>
+                            活动记录备注
+                        </h3>
+                        <textarea id="activityNotes" rows="4" placeholder="请输入活动记录备注..." class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary"></textarea>
+                    </div>
+                    
+                    <!-- 用户评论收集 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-3 flex items-center">
+                            <i class="fa fa-comments mr-2 text-pink-400"></i>
+                            用户评论与反馈
+                        </h3>
+                        <div id="commentsList" class="space-y-3 mb-4 max-h-64 overflow-y-auto custom-scrollbar">
+                            <!-- 评论列表动态生成 -->
+                        </div>
+                        <div class="flex gap-2">
+                            <textarea id="newComment" rows="2" placeholder="请输入评论..." class="flex-1 px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary"></textarea>
+                            <button onclick="addComment()" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                                <i class="fa fa-send mr-2"></i>提交
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 底部操作按钮 -->
+                    <div class="flex justify-between items-center pt-4 border-t border-white/20">
+                        <div class="text-sm text-gray-400">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            所有文件总大小限制50MB以内
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="closeArchiveModal()" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                                取消
+                            </button>
+                            <button onclick="saveArchive()" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                                <i class="fa fa-save mr-2"></i>保存归档
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let activities = [];
+        let signups = [];
+        let currentEditId = null;
+        let uploadedFiles = [];
+        let editUploadedFiles = [];
+        let currentFilter = 'all';
+        let currentSort = null;
+        let currentView = 'card'; // 'card' or 'table'
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadActivitiesFromStorage();
+            renderActivities();
+            initEventListeners();
+            initFileUpload();
+            updateDepartmentStats();
+        });
+        
+        async function loadActivitiesFromStorage() {
+            try {
+                const { data, error } = await Supa.client.from('activities').select('*').order('created_at', { ascending: false });
+                activities = (!error && Array.isArray(data)) ? data : [];
+            } catch (e) { activities = []; }
+            try {
+                const { data, error } = await Supa.client.from('signups').select('*').order('created_at', { ascending: false });
+                signups = (!error && Array.isArray(data)) ? data : [];
+            } catch (e) { signups = []; }
+        }
+        
+        // 保存活动数据到localStorage
+        async function saveActivitiesToStorage() {
+            updateDepartmentStats();
+            window.dispatchEvent(new CustomEvent('activitiesUpdated', { detail: activities }));
+        }
+        
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 搜索功能
+            document.getElementById('searchInput').addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                filterActivities(searchTerm);
+            });
+            
+            // 新建活动按钮
+            document.getElementById('newActivityBtn').addEventListener('click', () => {
+                document.getElementById('createActivityModal').classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            // 活动表单提交
+            document.getElementById('activityForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                saveActivity();
+            });
+            
+            // 编辑活动表单提交
+            document.getElementById('editActivityForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                saveEditedActivity();
+            });
+            // 权限门控
+            try {
+                document.getElementById('newActivityBtn').setAttribute('data-permission','activities:create');
+                document.getElementById('exportExcelBtn')?.setAttribute('data-permission','activities:export');
+                Common.guardUI(document);
+            } catch(e){}
+        }
+        
+        // 获取活动状态（根据时间自动判断）
+        function getActivityStatus(activity) {
+            if (activity.status && activity.status === 'cancelled') {
+                return { text: '已取消', class: 'bg-red-500/20 text-red-200' };
+            }
+            
+            const currentTime = new Date();
+            const activityTime = new Date(activity.time);
+            
+            // 如果活动时间还未到，显示"进行中"
+            if (activityTime > currentTime) {
+                return { text: '进行中', class: 'bg-green-500/20 text-green-200' };
+            }
+            
+            // 活动时间已过，根据时间差判断是否已结束
+            const hoursDiff = (currentTime - activityTime) / (1000 * 60 * 60);
+            if (hoursDiff > 4) { // 假设活动持续4小时
+                return { text: '已结束', class: 'bg-gray-500/20 text-gray-200' };
+            } else {
+                return { text: '进行中', class: 'bg-green-500/20 text-green-200' };
+            }
+        }
+        
+        // 渲染活动列表
+        function renderActivities() {
+            if (currentView === 'card') {
+                renderCardView();
+            } else {
+                renderTableView();
+            }
+        }
+        
+        // 渲染卡片视图
+        function renderCardView() {
+            const container = document.getElementById('activitiesContainer');
+            
+            // 应用筛选
+            let filteredActivities = filterActivitiesList(activities);
+            
+            // 应用排序
+            if (currentSort === 'type') {
+                filteredActivities.sort((a, b) => a.type.localeCompare(b.type));
+            }
+            
+            if (filteredActivities.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center text-gray-400 py-8">暂无活动</div>';
+                return;
+            }
+            
+            container.innerHTML = filteredActivities.map(activity => {
+                const signupCount = signups.filter(s => s.activityId === activity.id).length;
+                const typeLabel = getTypeLabel(activity.type);
+                const statusLabel = getActivityStatus(activity);
+                
+                // 获取主讲人信息
+                let speakerInfo = '';
+                if (activity.speakers && activity.speakers.length > 0) {
+                    const speakerNames = activity.speakers.map(s => s.name).join('、');
+                    speakerInfo = `<div class="flex items-center text-gray-300">
+                        <i class="fa fa-user mr-2 w-4"></i>
+                        <span>${speakerNames}</span>
+                    </div>`;
+                }
+                
+                // 获取剩余天数
+                const daysInfo = getDaysRemaining(activity.time || activity.createdAt);
+                const daysClass = getDaysClass(daysInfo.days);
+                
+                return `
+                    <div class="glass glass-hover rounded-2xl p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-xs px-2 py-1 rounded-full ${typeLabel.class}">${typeLabel.text}</span>
+                            <span class="text-xs px-2 py-1 rounded-full ${statusLabel.class}">${statusLabel.text}</span>
+                        </div>
+                        
+                        <h3 class="text-xl font-bold mb-2">${activity.title || '未命名活动'}</h3>
+                        
+                        <div class="space-y-2 mb-4 text-gray-300">
+                            <div class="flex items-center">
+                                <i class="fa fa-building mr-2 w-4"></i>
+                                <span>${activity.organizer || '未设置'}</span>
+                            </div>
+                            ${speakerInfo}
+                            <div class="flex items-center">
+                                <i class="fa fa-calendar mr-2 w-4"></i>
+                                <span>${activity.time ? new Date(activity.time).toLocaleString('zh-CN') : '未设置'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fa fa-map-marker mr-2 w-4"></i>
+                                <span>${activity.location || '未设置'}</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fa fa-users mr-2 w-4"></i>
+                                <span>${signupCount} 人已报名</span>
+                            </div>
+                        </div>
+                        
+                        ${activity.description ? `
+                        <p class="text-gray-300 mb-4 line-clamp-2">${activity.description}</p>
+                        ` : ''}
+                        
+                        <div class="flex items-center gap-2">
+                            <button onclick="showActivityStats('${activity.id}')" class="px-4 py-2 rounded-lg bg-blue-500/80 hover:bg-blue-500 transition-all text-sm">
+                                <i class="fa fa-bar-chart mr-1"></i>统计
+                            </button>
+                            <button onclick="editActivity('${activity.id}')" class="px-3 py-2 rounded-lg bg-yellow-500/80 hover:bg-yellow-500 transition-all text-sm">
+                                <i class="fa fa-edit mr-1"></i>修改
+                            </button>
+                            <button onclick="deleteActivity('${activity.id}')" class="px-3 py-2 rounded-lg bg-red-500/80 hover:bg-red-500 transition-all text-sm">
+                                <i class="fa fa-trash mr-1"></i>删除
+                            </button>
+                            <button onclick="showActivityArchive('${activity.id}')" class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all text-sm">
+                                <i class="fa fa-archive mr-1"></i>归档
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // 渲染表格视图
+        function renderTableView() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            // 应用筛选
+            let filteredActivities = filterActivitiesList(activities);
+            
+            // 应用排序
+            if (currentSort === 'type') {
+                filteredActivities.sort((a, b) => a.type.localeCompare(b.type));
+            }
+            
+            if (filteredActivities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-400 py-8">暂无活动</td></tr>';
+                return;
+            }
+            
+            filteredActivities.forEach(activity => {
+                const signupCount = signups.filter(s => s.activityId === activity.id).length;
+                const typeLabel = getTypeLabel(activity.type);
+                const statusLabel = getActivityStatus(activity);
+                
+                // 获取主讲人信息
+                let speakerNames = '';
+                if (activity.speakers && activity.speakers.length > 0) {
+                    speakerNames = activity.speakers.map(s => s.name).join('、');
+                }
+                
+                const row = document.createElement('tr');
+                row.className = 'border-b border-white/20 hover:bg-white/10 transition-colors';
+                row.innerHTML = `
+                    <td class="py-3 px-4">
+                        <div class="font-medium">${activity.title || '未命名活动'}</div>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs ${typeLabel.class}">${typeLabel.text}</span>
+                    </td>
+                    <td class="py-3 px-4">${speakerNames || '无'}</td>
+                    <td class="py-3 px-4">${activity.organizer || '未设置'}</td>
+                    <td class="py-3 px-4">${activity.time ? new Date(activity.time).toLocaleString('zh-CN') : '未设置'}</td>
+                    <td class="py-3 px-4">${signupCount}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs ${statusLabel.class}">${statusLabel.text}</span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="showActivityStats('${activity.id}')" class="px-2 py-1 text-xs rounded bg-blue-500/80 hover:bg-blue-500 transition-all mr-1" title="统计">
+                            <i class="fa fa-bar-chart"></i>
+                        </button>
+                        <button onclick="editActivity('${activity.id}')" class="px-2 py-1 text-xs rounded bg-yellow-500/80 hover:bg-yellow-500 transition-all mr-1" title="修改">
+                            <i class="fa fa-edit"></i>
+                        </button>
+                        <button onclick="deleteActivity('${activity.id}')" class="px-2 py-1 text-xs rounded bg-red-500/80 hover:bg-red-500 transition-all" title="删除">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 获取类型标签
+        function getTypeLabel(type) {
+            const typeMap = {
+                'training': { text: '培训及讲座', class: 'bg-blue-500/20 text-blue-200' },
+                'internal': { text: '院内活动', class: 'bg-green-500/20 text-green-200' },
+                'external': { text: '院外活动', class: 'bg-orange-500/20 text-orange-200' }
+            };
+            return typeMap[type] || { text: '未知类型', class: 'bg-gray-500/20 text-gray-200' };
+        }
+        
+        // 筛选功能
+        function filterByStatus(status) {
+            currentFilter = status;
+            currentSort = null; // 重置排序
+            renderActivities();
+        }
+        
+        // 按活动类型排序
+        function sortByType() {
+            currentSort = 'type';
+            currentFilter = 'all'; // 重置筛选
+            renderActivities();
+        }
+        
+        // 活动筛选
+        function filterActivities(searchTerm = '') {
+            const term = searchTerm.toLowerCase();
+            const activities = document.querySelectorAll('.activity-card');
+            activities.forEach(activity => {
+                const text = activity.textContent.toLowerCase();
+                activity.style.display = text.includes(term) ? 'block' : 'none';
+            });
+        }
+        
+        // 筛选活动列表
+        function filterActivitiesList(activitiesList) {
+            let filtered = [...activitiesList];
+            
+            if (currentFilter === 'ongoing') {
+                filtered = filtered.filter(activity => {
+                    const status = getActivityStatus(activity);
+                    return status.text === '进行中';
+                });
+            } else if (currentFilter === 'completed') {
+                filtered = filtered.filter(activity => {
+                    const status = getActivityStatus(activity);
+                    return status.text === '已结束';
+                });
+            }
+            
+            return filtered;
+        }
+        
+        // 切换视图
+        function toggleView() {
+            currentView = currentView === 'card' ? 'table' : 'card';
+            const cardContainer = document.getElementById('activitiesContainer');
+            const tableContainer = document.getElementById('tableViewContainer');
+            
+            if (currentView === 'card') {
+                cardContainer.classList.remove('hidden');
+                tableContainer.classList.add('hidden');
+                renderCardView();
+            } else {
+                cardContainer.classList.add('hidden');
+                tableContainer.classList.remove('hidden');
+                renderTableView();
+            }
+        }
+        
+        // 更新事业部统计
+        function updateDepartmentStats() {
+            const modernCount = activities.filter(a => a.organizer && a.organizer.includes('现代')).length;
+            const testCount = activities.filter(a => a.organizer && a.organizer.includes('检测')).length;
+            const fangCount = activities.filter(a => a.organizer && a.organizer.includes('房科')).length;
+            
+            document.getElementById('modernCount').textContent = modernCount;
+            document.getElementById('testCount').textContent = testCount;
+            document.getElementById('fangCount').textContent = fangCount;
+        }
+        
+        // 编辑活动
+        function editActivity(activityId) {
+            currentEditId = activityId;
+            const activity = activities.find(a => a.id === activityId);
+            if (!activity) return;
+            
+            // 填充表单
+            document.getElementById('editActivityType').value = activity.type;
+            document.getElementById('editActivityTitle').value = activity.title || '';
+            document.getElementById('editActivityOrganizer').value = activity.organizer || '';
+            document.getElementById('editActivityTime').value = activity.time || '';
+            document.getElementById('editActivityLocation').value = activity.location || '';
+            
+            // 加载已上传的文件
+            editUploadedFiles = activity.attachments || [];
+            
+            // 显示编辑模态框
+            document.getElementById('editActivityModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // 更新动态字段
+            updateEditFormFields();
+            
+            // 显示文件预览
+            renderEditFilePreviews();
+        }
+        
+        // 删除活动
+        async function deleteActivity(activityId) {
+            if (!confirm('确定要删除这个活动吗？')) return;
+            if (window.Common){ const ok = await Common.ensureNotFrozen(); if (!ok) return; }
+            
+            const index = activities.findIndex(a => a.id === activityId);
+            if (index !== -1) {
+                try { await Supa.client.from('activities').delete().eq('id', activityId); } catch (e) {}
+                activities.splice(index, 1);
+                await saveActivitiesToStorage();
+                renderActivities();
+                showToast('活动删除成功！');
+            }
+        }
+        
+        // 保存编辑的活动
+        async function saveEditedActivity() {
+            if (window.Common){ const ok = await Common.ensureNotFrozen(); if (!ok) return; }
+            const activity = activities.find(a => a.id === currentEditId);
+            if (!activity) return;
+            
+            // 更新活动信息
+            activity.type = document.getElementById('editActivityType').value;
+            activity.title = document.getElementById('editActivityTitle').value;
+            activity.organizer = document.getElementById('editActivityOrganizer').value;
+            (function(){
+                const v = document.getElementById('editActivityTime').value;
+                const d = new Date(v);
+                activity.time = isNaN(d.getTime()) ? null : d.toISOString();
+            })();
+            activity.location = document.getElementById('editActivityLocation').value;
+            activity.attachments = editUploadedFiles;
+            
+            // 收集动态字段
+            const descriptionField = document.getElementById('editActivityDescription');
+            if (descriptionField) {
+                activity.description = descriptionField.value;
+            }
+            
+            const requirementsField = document.getElementById('editActivityRequirements');
+            if (requirementsField) {
+                activity.requirements = requirementsField.value;
+            }
+            
+            // 收集主讲人信息
+            if (activity.type === 'training') {
+                const speakerDivs = document.querySelectorAll('#editSpeakersContainer > div');
+                activity.speakers = [];
+                speakerDivs.forEach(div => {
+                    const nameInput = div.querySelector('input[type="text"]');
+                    const identityTextarea = div.querySelector('textarea');
+                    if (nameInput && nameInput.value) {
+                        activity.speakers.push({
+                            name: nameInput.value,
+                            identity: identityTextarea?.value || ''
+                        });
+                    }
+                });
+            }
+            
+            const payload = {
+                type: activity.type,
+                title: activity.title,
+                organizer: activity.organizer,
+                time: activity.time,
+                location: activity.location,
+                description: activity.description,
+                requirements: activity.requirements,
+                speakers: activity.speakers,
+                attachments: activity.attachments,
+                status: activity.status
+            };
+            const up = await Supa.client.from('activities').update(payload).eq('id', activity.id);
+            if (up && up.error) { showToast('更新失败：'+(up.error.message||'错误'), 'error'); }
+            await saveActivitiesToStorage();
+            
+            // 关闭模态框
+            closeEditModal();
+            
+            // 重新渲染列表
+            renderActivities();
+            
+            showToast('活动更新成功！');
+        }
+        
+        // 关闭编辑模态框
+        function closeEditModal() {
+            document.getElementById('editActivityModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('editActivityForm').reset();
+            currentEditId = null;
+            editUploadedFiles = [];
+        }
+        
+        // 更新编辑表单字段
+        function updateEditFormFields() {
+            const type = document.getElementById('editActivityType').value;
+            const dynamicFields = document.getElementById('editDynamicFields');
+            
+            let fieldsHTML = `
+                <div>
+                    <label class="block mb-2">活动简介</label>
+                    <textarea id="editActivityDescription" rows="4" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">${activities.find(a => a.id === currentEditId)?.description || ''}</textarea>
+                </div>
+                <div>
+                    <label class="block mb-2">各部门参加要求</label>
+                    <textarea id="editActivityRequirements" rows="3" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">${activities.find(a => a.id === currentEditId)?.requirements || ''}</textarea>
+                </div>
+            `;
+            
+            if (type === 'training') {
+                fieldsHTML += `
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block">主讲人信息</label>
+                            <button type="button" onclick="addEditSpeaker()" class="px-3 py-1 rounded-lg bg-primary hover:bg-primary/80 text-sm transition-all">
+                                <i class="fa fa-plus mr-1"></i>添加主讲人
+                            </button>
+                        </div>
+                        <div id="editSpeakersContainer">
+                            <!-- 主讲人动态添加 -->
+                        </div>
+                    </div>
+                `;
+            }
+            
+            dynamicFields.innerHTML = fieldsHTML;
+            
+            // 如果活动有主讲人，加载到表单中
+            if (currentEditId) {
+                const activity = activities.find(a => a.id === currentEditId);
+                if (activity && activity.speakers) {
+                    activity.speakers.forEach(speaker => {
+                        addEditSpeaker(speaker);
+                    });
+                }
+            }
+        }
+        
+        // 添加编辑主讲人
+        function addEditSpeaker(speaker = null) {
+            const container = document.getElementById('editSpeakersContainer');
+            const speakerCount = container.children.length + 1;
+            
+            const speakerDiv = document.createElement('div');
+            speakerDiv.className = 'space-y-2 p-4 border border-white/20 rounded-lg mb-2 glass';
+            speakerDiv.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h4 class="font-bold">主讲人 ${speakerCount}</h4>
+                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="px-2 py-1 rounded-lg bg-red-500/80 hover:bg-red-500 text-sm transition-all">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div>
+                    <label class="block mb-1">姓名</label>
+                    <input type="text" placeholder="主讲人姓名" value="${speaker ? speaker.name : ''}" class="w-full px-3 py-2 rounded glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block mb-1">身份（每行一个）</label>
+                    <textarea placeholder="请输入主讲人身份，每行一个" rows="3" class="w-full px-3 py-2 rounded glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">${speaker ? speaker.identity : ''}</textarea>
+                </div>
+            `;
+            
+            container.appendChild(speakerDiv);
+        }
+        
+        // 初始化文件上传功能
+        function initFileUpload() {
+            // 新建活动的文件上传
+            const dropZone = document.getElementById('fileUploadZone');
+            const fileInput = document.getElementById('activityAttachments');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, unhighlight, false);
+            });
+            
+            dropZone.addEventListener('drop', handleDrop, false);
+            
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+            
+            // 编辑活动的文件上传
+            const editDropZone = document.getElementById('editFileUploadZone');
+            const editFileInput = document.getElementById('editActivityAttachments');
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                editDropZone.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                editDropZone.addEventListener(eventName, () => {
+                    editDropZone.classList.add('dragover');
+                }, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                editDropZone.addEventListener(eventName, () => {
+                    editDropZone.classList.remove('dragover');
+                }, false);
+            });
+            
+            editDropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleEditFiles(files);
+            }, false);
+            
+            editFileInput.addEventListener('change', (e) => {
+                handleEditFiles(e.target.files);
+            });
+        }
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        function highlight(e) {
+            document.getElementById('fileUploadZone').classList.add('dragover');
+        }
+        
+        function unhighlight(e) {
+            document.getElementById('fileUploadZone').classList.remove('dragover');
+        }
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+        
+        // 处理文件上传（新建活动）
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                if (file.size > 50 * 1024 * 1024) {
+                    showToast(`文件 ${file.name} 超过50MB限制`, 'error');
+                    return;
+                }
+                
+                // 检查文件是否已存在
+                if (uploadedFiles.find(f => f.name === file.name)) {
+                    showToast(`文件 ${file.name} 已存在`, 'error');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fileData = {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: e.target.result,
+                        uploadTime: new Date().toISOString()
+                    };
+                    
+                    uploadedFiles.push(fileData);
+                    displayFilePreview(fileData);
+                };
+                
+                if (file.type.startsWith('image/')) {
+                    reader.readAsDataURL(file);
+                } else {
+                    reader.onload = function(e) {
+                        const fileData = {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: null,
+                            uploadTime: new Date().toISOString()
+                        };
+                        uploadedFiles.push(fileData);
+                        displayFilePreview(fileData);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // 处理文件上传（编辑活动）
+        function handleEditFiles(files) {
+            Array.from(files).forEach(file => {
+                if (file.size > 50 * 1024 * 1024) {
+                    showToast(`文件 ${file.name} 超过50MB限制`, 'error');
+                    return;
+                }
+                
+                // 检查文件是否已存在
+                if (editUploadedFiles.find(f => f.name === file.name)) {
+                    showToast(`文件 ${file.name} 已存在`, 'error');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fileData = {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: e.target.result,
+                        uploadTime: new Date().toISOString()
+                    };
+                    
+                    editUploadedFiles.push(fileData);
+                    renderEditFilePreviews();
+                };
+                
+                if (file.type.startsWith('image/')) {
+                    reader.readAsDataURL(file);
+                } else {
+                    reader.onload = function(e) {
+                        const fileData = {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            data: null,
+                            uploadTime: new Date().toISOString()
+                        };
+                        editUploadedFiles.push(fileData);
+                        renderEditFilePreviews();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // 显示文件预览（新建活动）
+        function displayFilePreview(fileData) {
+            const previewGrid = document.getElementById('filePreviewGrid');
+            const previewItem = document.createElement('div');
+            previewItem.className = 'file-preview-item';
+            
+            const isImage = fileData.type && fileData.type.startsWith('image/');
+            
+            if (isImage && fileData.data) {
+                previewItem.innerHTML = `
+                    <img src="${fileData.data}" class="file-preview-image" alt="${fileData.name}">
+                    <div class="file-preview-info">
+                        <div class="truncate">${fileData.name}</div>
+                        <div class="text-xs opacity-75">${formatFileSize(fileData.size)}</div>
+                    </div>
+                    <button type="button" onclick="removeFile('${fileData.name}')" class="remove-file-btn">
+                        <i class="fa fa-times"></i>
+                    </button>
+                `;
+            } else {
+                const fileIcon = getFileIcon(fileData.name);
+                previewItem.innerHTML = `
+                    <div class="flex items-center justify-center h-32">
+                        <i class="fa ${fileIcon} text-4xl text-gray-400"></i>
+                    </div>
+                    <div class="file-preview-info">
+                        <div class="truncate">${fileData.name}</div>
+                        <div class="text-xs opacity-75">${formatFileSize(fileData.size)}</div>
+                    </div>
+                    <button type="button" onclick="removeFile('${fileData.name}')" class="remove-file-btn">
+                        <i class="fa fa-times"></i>
+                    </button>
+                `;
+            }
+            
+            previewGrid.appendChild(previewItem);
+        }
+        
+        // 渲染文件预览（编辑活动）
+        function renderEditFilePreviews() {
+            const previewGrid = document.getElementById('editFilePreviewGrid');
+            previewGrid.innerHTML = '';
+            
+            editUploadedFiles.forEach(fileData => {
+                const previewItem = document.createElement('div');
+                previewItem.className = 'file-preview-item';
+                
+                const isImage = fileData.type && fileData.type.startsWith('image/');
+                
+                if (isImage && fileData.data) {
+                    previewItem.innerHTML = `
+                        <img src="${fileData.data}" class="file-preview-image" alt="${fileData.name}">
+                        <div class="file-preview-info">
+                            <div class="truncate">${fileData.name}</div>
+                            <div class="text-xs opacity-75">${formatFileSize(fileData.size)}</div>
+                        </div>
+                        <button type="button" onclick="removeEditFile('${fileData.name}')" class="remove-file-btn">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    `;
+                } else {
+                    const fileIcon = getFileIcon(fileData.name);
+                    previewItem.innerHTML = `
+                        <div class="flex items-center justify-center h-32">
+                            <i class="fa ${fileIcon} text-4xl text-gray-400"></i>
+                        </div>
+                        <div class="file-preview-info">
+                            <div class="truncate">${fileData.name}</div>
+                            <div class="text-xs opacity-75">${formatFileSize(fileData.size)}</div>
+                        </div>
+                        <button type="button" onclick="removeEditFile('${fileData.name}')" class="remove-file-btn">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    `;
+                }
+                
+                previewGrid.appendChild(previewItem);
+            });
+        }
+        
+        // 移除文件（新建活动）
+        function removeFile(fileName) {
+            uploadedFiles = uploadedFiles.filter(f => f.name !== fileName);
+            refreshFilePreview();
+        }
+        
+        // 移除文件（编辑活动）
+        function removeEditFile(fileName) {
+            editUploadedFiles = editUploadedFiles.filter(f => f.name !== fileName);
+            renderEditFilePreviews();
+        }
+        
+        // 刷新文件预览
+        function refreshFilePreview() {
+            const previewGrid = document.getElementById('filePreviewGrid');
+            previewGrid.innerHTML = '';
+            uploadedFiles.forEach(fileData => {
+                displayFilePreview(fileData);
+            });
+        }
+        
+        // 获取文件图标
+        function getFileIcon(fileName) {
+            const ext = fileName.split('.').pop().toLowerCase();
+            const iconMap = {
+                'pdf': 'fa-file-pdf-o',
+                'doc': 'fa-file-word-o',
+                'docx': 'fa-file-word-o',
+                'xls': 'fa-file-excel-o',
+                'xlsx': 'fa-file-excel-o',
+                'ppt': 'fa-file-powerpoint-o',
+                'pptx': 'fa-file-powerpoint-o',
+                'txt': 'fa-file-text-o',
+                'zip': 'fa-file-archive-o',
+                'rar': 'fa-file-archive-o'
+            };
+            return iconMap[ext] || 'fa-file-o';
+        }
+        
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // 更新表单字段（新建活动）
+        function updateFormFields() {
+            const type = document.getElementById('activityType').value;
+            const dynamicFields = document.getElementById('dynamicFields');
+            
+            let fieldsHTML = `
+                <div>
+                    <label class="block mb-2">活动简介</label>
+                    <textarea id="activityDescription" rows="4" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary"></textarea>
+                </div>
+                <div>
+                    <label class="block mb-2">各部门参加要求</label>
+                    <textarea id="activityRequirements" rows="3" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary"></textarea>
+                </div>
+            `;
+            
+            if (type === 'training') {
+                fieldsHTML += `
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="block">主讲人信息</label>
+                            <button type="button" onclick="addSpeaker()" class="px-3 py-1 rounded-lg bg-primary hover:bg-primary/80 text-sm transition-all">
+                                <i class="fa fa-plus mr-1"></i>添加主讲人
+                            </button>
+                        </div>
+                        <div id="speakersContainer">
+                            <!-- 主讲人动态添加 -->
+                        </div>
+                    </div>
+                `;
+            }
+            
+            dynamicFields.innerHTML = fieldsHTML;
+        }
+        
+        // 添加主讲人
+        function addSpeaker() {
+            const container = document.getElementById('speakersContainer');
+            const speakerCount = container.children.length + 1;
+            
+            const speakerDiv = document.createElement('div');
+            speakerDiv.className = 'space-y-2 p-4 border border-white/20 rounded-lg mb-2 glass';
+            speakerDiv.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <h4 class="font-bold">主讲人 ${speakerCount}</h4>
+                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="px-2 py-1 rounded-lg bg-red-500/80 hover:bg-red-500 text-sm transition-all">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div>
+                    <label class="block mb-1">姓名</label>
+                    <input type="text" placeholder="主讲人姓名" class="w-full px-3 py-2 rounded glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                </div>
+                <div>
+                    <label class="block mb-1">身份（每行一个）</label>
+                    <textarea placeholder="请输入主讲人身份，每行一个" rows="3" class="w-full px-3 py-2 rounded glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary"></textarea>
+                </div>
+            `;
+            
+            container.appendChild(speakerDiv);
+        }
+        
+        // 保存活动
+        async function saveActivity() {
+            const gu = await Supa.client.auth.getUser();
+            const user = (gu && gu.data && gu.data.user) || null;
+            if (!user) { showToast('请先登录', 'error'); return; }
+            const pr = await Supa.client.from('profiles').select('org_id').eq('id', user.id).single();
+            const orgId = pr && pr.data && pr.data.org_id;
+            if (!orgId) { showToast('未设置组织归属', 'error'); return; }
+            const activity = {
+                type: document.getElementById('activityType').value,
+                title: document.getElementById('activityTitle').value,
+                organizer: document.getElementById('activityOrganizer').value,
+                time: (function(){
+                    const v = document.getElementById('activityTime').value;
+                    const d = new Date(v);
+                    return isNaN(d.getTime()) ? null : d.toISOString();
+                })(),
+                location: document.getElementById('activityLocation').value,
+                description: document.getElementById('activityDescription')?.value || '',
+                requirements: document.getElementById('activityRequirements')?.value || '',
+                speakers: [],
+                attachments: uploadedFiles,
+                status: 'ongoing',
+                org_id: orgId,
+                created_by: user.id
+            };
+            
+            // 收集主讲人信息
+            if (activity.type === 'training') {
+                const speakersContainer = document.getElementById('speakersContainer');
+                const speakerDivs = speakersContainer.querySelectorAll('div');
+                speakerDivs.forEach(div => {
+                    const nameInput = div.querySelector('input[type="text"]');
+                    const identityTextarea = div.querySelector('textarea');
+                    if (nameInput && nameInput.value) {
+                        activity.speakers.push({
+                            name: nameInput.value,
+                            identity: identityTextarea?.value || ''
+                        });
+                    }
+                });
+            }
+            
+            const ins = await Supa.client.from('activities').insert(activity).select('*').single();
+            if (ins && ins.error) { showToast('创建失败：'+(ins.error.message||'错误'), 'error'); return; }
+            if (ins && ins.data) { activities.unshift(ins.data); }
+            await saveActivitiesToStorage();
+            
+            // 重新渲染列表
+            renderActivities();
+            
+            // 关闭模态框
+            closeCreateModal();
+            
+            // 显示成功提示
+            showToast('活动创建成功！');
+        }
+        
+        // 显示活动统计
+        function showActivityStats(activityId) {
+            const activity = activities.find(a => a.id === activityId);
+            const activitySignups = signups.filter(s => s.activityId === activityId);
+            
+            // 按部门统计
+            const deptStats = {};
+            activitySignups.forEach(signup => {
+                if (!deptStats[signup.department]) {
+                    deptStats[signup.department] = [];
+                }
+                deptStats[signup.department].push(signup);
+            });
+            
+            const statsContent = `
+                <div class="space-y-6">
+                    <!-- 活动基本信息 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-xl font-bold mb-2">${activity.title}</h3>
+                        <div class="text-gray-300">
+                            <p><i class="fa fa-building mr-2"></i>${activity.organizer}</p>
+                            <p><i class="fa fa-calendar mr-2"></i>${activity.time ? new Date(activity.time).toLocaleString('zh-CN') : '未设置'}</p>
+                            <p><i class="fa fa-map-marker mr-2"></i>${activity.location}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计概览 -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-primary">${activitySignups.length}</div>
+                            <div class="text-gray-300">总报名人数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-green-400">${Object.keys(deptStats).length}</div>
+                            <div class="text-gray-300">参与部门数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-yellow-400">${activitySignups.filter(s => s.department.startsWith('现代')).length}</div>
+                            <div class="text-gray-300">现代院人数</div>
+                        </div>
+                        <div class="p-4 rounded-lg bg-white/5 text-center">
+                            <div class="text-3xl font-bold text-blue-400">${activitySignups.filter(s => s.department === '检测站').length}</div>
+                            <div class="text-gray-300">检测站人数</div>
+                        </div>
+                    </div>
+                    
+                    <!-- 报名详情列表 -->
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-4">报名详情</h3>
+                        <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar">
+                            ${Object.entries(deptStats).map(([dept, users]) => `
+                                <div class="p-3 rounded-lg bg-white/5 mb-2">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <h4 class="font-bold text-sm">${dept}</h4>
+                                        <span class="px-2 py-1 rounded-full text-xs bg-primary/20 text-primary">${users.length}人</span>
+                                    </div>
+                                    <div class="text-gray-300 text-xs space-y-1">
+                                        ${users.map(user => `
+                                            <div class="flex justify-between">
+                                                <span>${user.name}</span>
+                                                <span class="text-gray-400">${formatDateTime(user.signupTime)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('statsContent').innerHTML = statsContent;
+            document.getElementById('statsModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 全局变量：当前归档活动ID和文件
+        let currentArchiveActivityId = null;
+        let archiveEventPhotos = [];
+        let archivePostEventFiles = [];
+        
+        // 显示活动归档
+        function showActivityArchive(activityId) {
+            currentArchiveActivityId = activityId;
+            const activity = activities.find(a => a.id === activityId);
+            if (!activity) return;
+            
+            // 填充活动基本信息
+            document.getElementById('archiveActivityTitle').textContent = activity.title || '未命名活动';
+            document.getElementById('archiveActivityInfo').innerHTML = `
+                <p><i class="fa fa-building mr-2"></i>${activity.organizer || '未设置'}</p>
+                <p><i class="fa fa-calendar mr-2"></i>${activity.time ? new Date(activity.time).toLocaleString('zh-CN') : '未设置'}</p>
+                <p><i class="fa fa-map-marker mr-2"></i>${activity.location || '未设置'}</p>
+            `;
+            
+            // 加载已有归档数据
+            if (!activity.archive) {
+                activity.archive = {
+                    notes: '',
+                    eventPhotos: [],
+                    postEventFiles: [],
+                    comments: []
+                };
+            }
+            
+            archiveEventPhotos = activity.archive.eventPhotos || [];
+            archivePostEventFiles = activity.archive.postEventFiles || [];
+            document.getElementById('activityNotes').value = activity.archive.notes || '';
+            
+            // 渲染文件预览和评论
+            renderArchiveFilePreviews();
+            renderComments();
+            
+            // 显示模态框
+            document.getElementById('archiveModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            
+            // 绑定文件上传事件
+            document.getElementById('eventPhotos').onchange = (e) => handleArchiveFiles(e, 'event');
+            document.getElementById('postEventFiles').onchange = (e) => handleArchiveFiles(e, 'post');
+        }
+        
+        // 关闭归档模态框
+        function closeArchiveModal() {
+            document.getElementById('archiveModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            currentArchiveActivityId = null;
+            archiveEventPhotos = [];
+            archivePostEventFiles = [];
+        }
+        
+        // 生成Excel签到表
+        function generateSignInSheet() {
+            const activity = activities.find(a => a.id === currentArchiveActivityId);
+            const activitySignups = signups.filter(s => s.activityId === currentArchiveActivityId);
+            
+            if (activitySignups.length === 0) {
+                showToast('该活动暂无报名记录', 'error');
+                return;
+            }
+            
+            // 构造签到表数据
+            const data = [
+                ['活动主题', activity.title || ''],
+                ['主办单位', activity.organizer || ''],
+                ['活动时间', activity.time ? new Date(activity.time).toLocaleString('zh-CN') : ''],
+                ['活动地点', activity.location || ''],
+                [],
+                ['序号', '报名部门', '报名人姓名', '签到']
+            ];
+            
+            activitySignups.forEach((signup, index) => {
+                data.push([index + 1, signup.department, signup.name, '']);
+            });
+            
+            // 创建工作表
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // 设置列宽
+            ws['!cols'] = [
+                { wch: 8 },
+                { wch: 25 },
+                { wch: 15 },
+                { wch: 15 }
+            ];
+            
+            // 合并单元格
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 1 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 1 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 1 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 1 } }
+            ];
+            
+            // 创建工作簿
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '签到表');
+            
+            // 下载文件
+            const fileName = `${activity.title || '活动'}_签到表_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            showToast('签到表生成成功！');
+        }
+        
+        // 处理归档文件上传
+        function handleArchiveFiles(event, type) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+            
+            // 计算当前总文件大小
+            let totalSize = archiveEventPhotos.reduce((sum, f) => sum + f.size, 0) +
+                           archivePostEventFiles.reduce((sum, f) => sum + f.size, 0);
+            
+            Array.from(files).forEach(file => {
+                totalSize += file.size;
+                if (totalSize > 50 * 1024 * 1024) {
+                    showToast('文件总大小超过50MB限制', 'error');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const fileData = {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        data: e.target.result,
+                        uploadTime: new Date().toISOString()
+                    };
+                    
+                    if (type === 'event') {
+                        archiveEventPhotos.push(fileData);
+                    } else {
+                        archivePostEventFiles.push(fileData);
+                    }
+                    
+                    renderArchiveFilePreviews();
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // 渲染归档文件预览
+        function renderArchiveFilePreviews() {
+            // 渲染活动现场照片
+            const eventPreview = document.getElementById('eventPhotosPreview');
+            eventPreview.innerHTML = archiveEventPhotos.map((file, index) => {
+                const isImage = file.type.startsWith('image/');
+                return `
+                    <div class="relative group">
+                        ${isImage ? 
+                            `<img src="${file.data}" class="w-full h-24 object-cover rounded-lg" alt="${file.name}">` :
+                            `<div class="w-full h-24 flex items-center justify-center bg-white/5 rounded-lg">
+                                <i class="fa fa-file-o text-3xl text-gray-400"></i>
+                            </div>`
+                        }
+                        <div class="absolute top-1 right-1">
+                            <button onclick="removeArchiveFile('event', ${index})" class="p-1 rounded-full bg-red-500/80 hover:bg-red-500 text-white">
+                                <i class="fa fa-times text-xs"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-300 mt-1 truncate">${file.name}</p>
+                    </div>
+                `;
+            }).join('') || '<p class="text-gray-400 text-sm col-span-4">暂无文件</p>';
+            
+            // 渲染活动后文件
+            const postPreview = document.getElementById('postEventFilesPreview');
+            postPreview.innerHTML = archivePostEventFiles.map((file, index) => {
+                const isImage = file.type.startsWith('image/');
+                return `
+                    <div class="relative group">
+                        ${isImage ? 
+                            `<img src="${file.data}" class="w-full h-24 object-cover rounded-lg" alt="${file.name}">` :
+                            `<div class="w-full h-24 flex items-center justify-center bg-white/5 rounded-lg">
+                                <i class="fa fa-file-o text-3xl text-gray-400"></i>
+                            </div>`
+                        }
+                        <div class="absolute top-1 right-1">
+                            <button onclick="removeArchiveFile('post', ${index})" class="p-1 rounded-full bg-red-500/80 hover:bg-red-500 text-white">
+                                <i class="fa fa-times text-xs"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-300 mt-1 truncate">${file.name}</p>
+                    </div>
+                `;
+            }).join('') || '<p class="text-gray-400 text-sm col-span-4">暂无文件</p>';
+        }
+        
+        // 删除归档文件
+        function removeArchiveFile(type, index) {
+            if (type === 'event') {
+                archiveEventPhotos.splice(index, 1);
+            } else {
+                archivePostEventFiles.splice(index, 1);
+            }
+            renderArchiveFilePreviews();
+        }
+        
+        // 渲染评论列表
+        function renderComments() {
+            const activity = activities.find(a => a.id === currentArchiveActivityId);
+            const comments = activity.archive?.comments || [];
+            const commentsList = document.getElementById('commentsList');
+            
+            if (comments.length === 0) {
+                commentsList.innerHTML = '<p class="text-gray-400 text-sm">暂无评论</p>';
+                return;
+            }
+            
+            commentsList.innerHTML = comments.map((comment, commentIndex) => `
+                <div class="p-3 rounded-lg bg-white/5">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-medium">${comment.userName || '匿名用户'}</p>
+                            <p class="text-xs text-gray-400">${new Date(comment.time).toLocaleString('zh-CN')}</p>
+                        </div>
+                    </div>
+                    <p class="text-gray-300 mb-2">${comment.content}</p>
+                    
+                    ${comment.replies && comment.replies.length > 0 ? `
+                        <div class="ml-4 mt-2 space-y-2 border-l-2 border-white/20 pl-3">
+                            ${comment.replies.map(reply => `
+                                <div class="text-sm">
+                                    <p class="text-gray-400"><span class="text-primary">回复：</span>${reply.content}</p>
+                                    <p class="text-xs text-gray-500">${new Date(reply.time).toLocaleString('zh-CN')}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="mt-2 flex gap-2">
+                        <input type="text" id="reply-${commentIndex}" placeholder="回复评论..." class="flex-1 px-3 py-1 text-sm rounded glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        <button onclick="addReply(${commentIndex})" class="px-3 py-1 text-sm rounded-lg bg-primary/80 hover:bg-primary transition-all">
+                            <i class="fa fa-reply mr-1"></i>回复
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 添加评论
+        function addComment() {
+            const commentText = document.getElementById('newComment').value.trim();
+            if (!commentText) {
+                showToast('请输入评论内容', 'error');
+                return;
+            }
+            
+            const activity = activities.find(a => a.id === currentArchiveActivityId);
+            if (!activity.archive.comments) {
+                activity.archive.comments = [];
+            }
+            
+            activity.archive.comments.push({
+                userName: '用户', // 实际项目中应从登录信息获取
+                content: commentText,
+                time: new Date().toISOString(),
+                replies: []
+            });
+            
+            document.getElementById('newComment').value = '';
+            renderComments();
+            showToast('评论已添加');
+        }
+        
+        // 添加回复
+        function addReply(commentIndex) {
+            const replyInput = document.getElementById(`reply-${commentIndex}`);
+            const replyText = replyInput.value.trim();
+            
+            if (!replyText) {
+                showToast('请输入回复内容', 'error');
+                return;
+            }
+            
+            const activity = activities.find(a => a.id === currentArchiveActivityId);
+            if (!activity.archive.comments[commentIndex].replies) {
+                activity.archive.comments[commentIndex].replies = [];
+            }
+            
+            activity.archive.comments[commentIndex].replies.push({
+                content: replyText,
+                time: new Date().toISOString()
+            });
+            
+            replyInput.value = '';
+            renderComments();
+            showToast('回复已添加');
+        }
+        
+        // 保存归档
+        function saveArchive() {
+            const activity = activities.find(a => a.id === currentArchiveActivityId);
+            
+            activity.archive = {
+                notes: document.getElementById('activityNotes').value,
+                eventPhotos: archiveEventPhotos,
+                postEventFiles: archivePostEventFiles,
+                comments: activity.archive?.comments || [],
+                savedAt: new Date().toISOString()
+            };
+            
+            saveActivitiesToStorage();
+            closeArchiveModal();
+            showToast('归档保存成功！');
+        }
+        
+        // Excel导出功能
+        function exportToExcel() {
+            // 准备数据
+            const data = activities.map(activity => {
+                const signupCount = signups.filter(s => s.activityId === activity.id).length;
+                const speakerNames = activity.speakers && activity.speakers.length > 0 
+                    ? activity.speakers.map(s => s.name).join('、') 
+                    : '无';
+                const speakerRoles = activity.speakers && activity.speakers.length > 0 
+                    ? activity.speakers.map(s => s.identity).join('、') 
+                    : '无';
+                const attachments = activity.attachments && activity.attachments.length > 0
+                    ? activity.attachments.map(a => a.name).join('、')
+                    : '无';
+                
+                return {
+                    '活动主题': activity.title || '未命名活动',
+                    '活动类型': getTypeLabel(activity.type).text,
+                    '主讲人': speakerNames,
+                    '主讲人身份': speakerRoles,
+                    '主办单位': activity.organizer || '未设置',
+                    '活动时间': activity.time ? new Date(activity.time).toLocaleString('zh-CN') : '未设置',
+                    '活动地点': activity.location || '未设置',
+                    '海报及附件': attachments,
+                    '报名人数': signupCount
+                };
+            });
+            
+            // 创建工作表
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '活动数据');
+            
+            // 下载文件
+            const fileName = `活动数据_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            showToast('Excel导出成功！');
+        }
+        
+        // 关闭模态框函数
+        function closeCreateModal() {
+            document.getElementById('createActivityModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('activityForm').reset();
+            uploadedFiles = [];
+            document.getElementById('filePreviewGrid').innerHTML = '';
+            document.getElementById('dynamicFields').innerHTML = '';
+        }
+        
+        function closeStatsModal() {
+            document.getElementById('statsModal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        
+        // 获取剩余天数
+        function getDaysRemaining(targetDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // 设置为当天00:00:00
+            
+            // 兼容多种格式
+            let target;
+            if (typeof targetDate === 'string') {
+                const normalizedStr = targetDate.replace('T', ' ');
+                target = new Date(normalizedStr);
+            } else {
+                target = new Date(targetDate);
+            }
+            target.setHours(0, 0, 0, 0); // 设置为目标日期00:00:00
+            
+            const diff = target - today;
+            const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            
+            return { days };
+        }
+        
+        // 获取剩余天数的样式类
+        function getDaysClass(days) {
+            if (days < 0) {
+                return 'bg-gray-500/20 text-gray-400';
+            } else if (days === 0) {
+                return 'bg-red-500/20 text-red-400';
+            } else if (days <= 3) {
+                return 'bg-orange-500/20 text-orange-400';
+            } else if (days <= 7) {
+                return 'bg-yellow-500/20 text-yellow-400';
+            } else {
+                return 'bg-green-500/20 text-green-400';
+            }
+        }
+        
+        // 格式化日期时间
+        function formatDateTime(dateTimeStr) {
+            if (!dateTimeStr) return '未设置';
+            
+            // 兼容多种格式：datetime-local格式(2025-12-15T14:00) 和 带空格格式(2025-12-15 14:00)
+            let date;
+            if (typeof dateTimeStr === 'string') {
+                // 将 'T' 替换为空格以统一格式
+                const normalizedStr = dateTimeStr.replace('T', ' ');
+                date = new Date(normalizedStr);
+            } else {
+                date = new Date(dateTimeStr);
+            }
+            
+            // 检查日期是否有效
+            if (isNaN(date.getTime())) {
+                return '无效日期';
+            }
+            
+            const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            const weekDay = weekDays[date.getDay()];
+            
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${weekDay} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        }
+        
+        // 全活动统计分析功能
+        let globalPieChart = null;
+        let globalBarChart = null;
+        let globalLineChart = null;
+        
+        // 切换统计分析容器
+        function toggleGlobalStats() {
+            const container = document.getElementById('globalStatsContainer');
+            const isHidden = container.classList.contains('hidden');
+            
+            if (isHidden) {
+                container.classList.remove('hidden');
+                container.style.maxHeight = '2000px';
+                renderGlobalStats();
+                // 平滑滚动到统计区域
+                setTimeout(() => {
+                    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            } else {
+                container.style.maxHeight = '0';
+                setTimeout(() => {
+                    container.classList.add('hidden');
+                }, 500);
+            }
+        }
+        
+        // 渲染全活动统计分析
+        function renderGlobalStats() {
+            // 统计数据
+            const totalCount = activities.length;
+            const ongoingCount = activities.filter(a => getActivityStatus(a).text === '进行中').length;
+            const completedCount = activities.filter(a => getActivityStatus(a).text === '已结束').length;
+            const totalSignups = signups.length;
+            const avgSignups = totalCount > 0 ? Math.round(totalSignups / totalCount) : 0;
+            
+            // 更新统计概览
+            document.getElementById('globalTotalCount').textContent = totalCount;
+            document.getElementById('globalOngoingCount').textContent = ongoingCount;
+            document.getElementById('globalCompletedCount').textContent = completedCount;
+            document.getElementById('globalSignupsCount').textContent = totalSignups;
+            document.getElementById('globalAvgSignups').textContent = avgSignups;
+            
+            // 活动类型统计
+            const typeStats = {
+                'training': activities.filter(a => a.type === 'training').length,
+                'internal': activities.filter(a => a.type === 'internal').length,
+                'external': activities.filter(a => a.type === 'external').length
+            };
+            
+            // 各部门活动统计
+            const deptStats = {};
+            activities.forEach(activity => {
+                const organizer = activity.organizer || '未知';
+                deptStats[organizer] = (deptStats[organizer] || 0) + 1;
+            });
+            
+            // 月度趋势统计
+            const monthStats = {};
+            activities.forEach(activity => {
+                const date = new Date(activity.time || activity.createdAt);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                monthStats[monthKey] = (monthStats[monthKey] || 0) + 1;
+            });
+            
+            // 渲染图表
+            renderGlobalPieChart(typeStats);
+            renderGlobalBarChart(deptStats);
+            renderGlobalLineChart(monthStats);
+            renderGlobalStatsTable(typeStats);
+        }
+        
+        // 渲染饼图
+        function renderGlobalPieChart(typeStats) {
+            const ctx = document.getElementById('globalPieChart').getContext('2d');
+            
+            if (globalPieChart) {
+                globalPieChart.destroy();
+            }
+            
+            globalPieChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['培训及讲座', '院内活动', '院外活动'],
+                    datasets: [{
+                        data: [typeStats.training, typeStats.internal, typeStats.external],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(251, 146, 60, 0.8)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.9)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#ffffff',
+                                padding: 15,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+        }
+        
+        // 渲染柱状图
+        function renderGlobalBarChart(deptStats) {
+            const ctx = document.getElementById('globalBarChart').getContext('2d');
+            
+            if (globalBarChart) {
+                globalBarChart.destroy();
+            }
+            
+            const sortedDepts = Object.entries(deptStats).sort((a, b) => b[1] - a[1]).slice(0, 8);
+            
+            globalBarChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedDepts.map(d => d[0]),
+                    datasets: [{
+                        label: '活动数量',
+                        data: sortedDepts.map(d => d[1]),
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        borderColor: 'rgba(34, 197, 94, 1)',
+                        borderWidth: 2,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#ffffff',
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#ffffff',
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+        }
+        
+        // 渲染趋势图
+        function renderGlobalLineChart(monthStats) {
+            const ctx = document.getElementById('globalLineChart').getContext('2d');
+            
+            if (globalLineChart) {
+                globalLineChart.destroy();
+            }
+            
+            const sortedMonths = Object.entries(monthStats).sort((a, b) => a[0].localeCompare(b[0]));
+            
+            globalLineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: sortedMonths.map(m => m[0]),
+                    datasets: [{
+                        label: '活动数量',
+                        data: sortedMonths.map(m => m[1]),
+                        borderColor: 'rgba(234, 179, 8, 1)',
+                        backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: 'rgba(234, 179, 8, 1)',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#ffffff',
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#ffffff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeInOutQuart'
+                    }
+                }
+            });
+        }
+        
+        // 渲染统计表格
+        function renderGlobalStatsTable(typeStats) {
+            const tbody = document.getElementById('globalStatsTableBody');
+            const total = typeStats.training + typeStats.internal + typeStats.external;
+            
+            const typeMap = {
+                'training': '培训及讲座',
+                'internal': '院内活动',
+                'external': '院外活动'
+            };
+            
+            tbody.innerHTML = Object.entries(typeStats).map(([type, count]) => {
+                const typeSignups = signups.filter(s => {
+                    const activity = activities.find(a => a.id === s.activityId);
+                    return activity && activity.type === type;
+                }).length;
+                const avgSignup = count > 0 ? Math.round(typeSignups / count) : 0;
+                const percentage = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                
+                return `
+                    <tr class="border-b border-white/10 hover:bg-white/5 transition-colors">
+                        <td class="py-3 px-4">${typeMap[type]}</td>
+                        <td class="py-3 px-4 text-center font-bold">${count}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2 py-1 rounded-full bg-primary/20 text-primary text-xs">${percentage}%</span>
+                        </td>
+                        <td class="py-3 px-4 text-center">${typeSignups}</td>
+                        <td class="py-3 px-4 text-center">${avgSignup}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-6 py-3 rounded-lg z-50 transition-all transform translate-x-full opacity-0`;
+            
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

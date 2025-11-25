@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奖项管理 - By HAISNAP</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js for statistics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    
+    <!-- GSAP for animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="assets/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="assets/supabase.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1E3A8A',
+                        secondary: '#D4AF37',
+                        dark: {
+                            100: '#1e293b',
+                            200: '#0f172a',
+                            300: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'blob': 'blob 20s infinite',
+                    },
+                    keyframes: {
+                        blob: {
+                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                            '100%': { transform: 'translate(0px, 0px) scale(1)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            
+            .blob {
+                position: absolute;
+                border-radius: 50%;
+                filter: blur(80px);
+                opacity: 0.2;
+                z-index: -1;
+            }
+            
+            .custom-scrollbar::-webkit-scrollbar {
+                width: 8px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+                background: rgba(255, 255, 255, 0.3);
+                border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.5);
+            }
+            
+            select {
+                background-color: #374151 !important;
+                color: white !important;
+            }
+            
+            select option {
+                background-color: #374151 !important;
+                color: white !important;
+            }
+        }
+    </style>
+    <style>
+        .theme-light .glass { background: rgba(255,255,255,0.6); border: 1px solid rgba(0,0,0,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+        .theme-light .glass-hover:hover { background: rgba(255,255,255,0.8); transform: scale(1.03); }
+        .theme-light .blob { opacity: 0.12; filter: blur(80px); }
+        .theme-light select { background-color: #ffffff !important; color: #0f172a !important; border: 1px solid rgba(0,0,0,0.1) !important; }
+        .theme-light select option { background-color: #ffffff !important; color: #0f172a !important; }
+        .theme-light .text-gray-300 { color: #374151 !important; }
+        .theme-light .text-gray-400 { color: #4b5563 !important; }
+        .animated-gradient { background: linear-gradient(135deg, #ffffff, #f6fafe, #e0f2fe, #ffffff); background-size: 400% 400%; animation: gradientShift 20s ease infinite; }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-neutral-800 text-white custom-scrollbar">
+    <!-- 背景blob -->
+    <div class="blob bg-blue-500 w-96 h-96 top-0 left-0 animate-blob"></div>
+    <div class="blob bg-purple-500 w-96 h-96 bottom-0 right-0 animate-blob" style="animation-delay: -10s;"></div>
+    <div class="blob bg-pink-500 w-96 h-96 top-1/2 right-1/4 animate-blob" style="animation-delay: -5s;"></div>
+    
+    <!-- 顶部导航栏 -->
+    <header class="sticky top-0 z-50 glass px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <i class="fa fa-trophy text-2xl text-secondary"></i>
+                <div>
+                    <h1 class="text-xl font-bold">奖项管理（管理员）</h1>
+                    <p class="text-xs text-gray-400">现代院奖项综合管理系统</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center space-x-6">
+                <!-- 四大板块导航 -->
+                <nav class="hidden md:flex space-x-4">
+                    <button class="px-4 py-2 rounded-lg bg-primary text-white transition-all" data-section="awards">
+                        奖项管理
+                    </button>
+                    <button class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-section="excellence">
+                        评优管理
+                    </button>
+                    <button class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-section="quality">
+                        质量检查
+                    </button>
+                    <button class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all" data-section="ip">
+                        知识产权
+                    </button>
+                </nav>
+                
+                <button id="backBtn" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                    <i class="fa fa-arrow-left mr-2"></i>返回
+                </button>
+                <button id="themeToggle" class="p-2 rounded-full glass hover:bg-white/20 transition-all" title="切换主题">
+                    <i id="themeIcon" class="fa fa-moon-o"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            applyThemeFromStorage();
+            const themeToggle = document.getElementById('themeToggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', function() {
+                    const next = (localStorage.getItem('theme') === 'light') ? 'dark' : 'light';
+                    setTheme(next);
+                });
+            }
+        });
+
+        function setTheme(theme) {
+            const html = document.documentElement;
+            const body = document.body;
+            if (theme === 'light') {
+                html.classList.add('theme-light');
+                body.classList.remove('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                body.classList.add('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-sun-o'; }
+            } else {
+                html.classList.remove('theme-light');
+                body.classList.remove('animated-gradient','from-white','via-indigo-50','to-sky-100','text-slate-900');
+                body.classList.add('from-slate-800','via-slate-700','to-neutral-800','text-white');
+                const icon = document.getElementById('themeIcon');
+                if (icon) { icon.className = 'fa fa-moon-o'; }
+            }
+            localStorage.setItem('theme', theme);
+        }
+
+        function applyThemeFromStorage() {
+            const theme = localStorage.getItem('theme') || 'dark';
+            setTheme(theme);
+        }
+    </script>
+    
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 统计分析区域 -->
+        <section class="mb-8">
+            <div class="glass rounded-2xl p-6">
+                <h2 class="text-2xl font-bold mb-6 flex items-center">
+                    <i class="fa fa-bar-chart mr-3 text-secondary"></i>
+                    统计分析
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="text-center p-4 rounded-lg bg-white/5">
+                        <div class="text-3xl font-bold text-primary">24</div>
+                        <div class="text-gray-300">奖项总数</div>
+                    </div>
+                    <div class="text-center p-4 rounded-lg bg-white/5">
+                        <div class="text-3xl font-bold text-green-400">18</div>
+                        <div class="text-gray-300">已获奖</div>
+                    </div>
+                    <div class="text-center p-4 rounded-lg bg-white/5">
+                        <div class="text-3xl font-bold text-yellow-400">6</div>
+                        <div class="text-gray-300">审核中</div>
+                    </div>
+                    <div class="text-center p-4 rounded-lg bg-white/5">
+                        <div class="text-3xl font-bold text-secondary">8</div>
+                        <div class="text-gray-300">本年度</div>
+                    </div>
+                </div>
+                
+                <!-- 图表区域 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-4">奖项类型分布</h3>
+                        <div style="height: 300px;">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="p-4 rounded-lg bg-white/5">
+                        <h3 class="text-lg font-bold mb-4">年度获奖趋势</h3>
+                        <div style="height: 300px;">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 筛选栏 -->
+        <section class="mb-8">
+            <div class="glass rounded-2xl p-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fa fa-filter mr-3 text-secondary"></i>
+                    筛选条件
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block mb-2">奖项名称</label>
+                        <input type="text" id="filterName" placeholder="输入奖项名称" 
+                               class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block mb-2">获奖部门</label>
+                        <select id="filterDept" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部部门</option>
+                            <option value="设计一部">设计一部</option>
+                            <option value="设计二部">设计二部</option>
+                            <option value="结构院">结构院</option>
+                            <option value="设备院">设备院</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block mb-2">获奖年份</label>
+                        <select id="filterYear" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部年份</option>
+                            <option value="2024">2024年</option>
+                            <option value="2023">2023年</option>
+                            <option value="2022">2022年</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block mb-2">奖项等级</label>
+                        <select id="filterLevel" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary">
+                            <option value="">全部等级</option>
+                            <option value="国家级">国家级</option>
+                            <option value="省级">省级</option>
+                            <option value="市级">市级</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-4">
+                    <div class="flex gap-2">
+                        <button id="applyFilter" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-search mr-2"></i>应用筛选
+                        </button>
+                        <button id="resetFilter" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-refresh mr-2"></i>重置
+                        </button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="exportExcel" class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition-all">
+                            <i class="fa fa-download mr-2"></i>导出Excel
+                        </button>
+                        <button id="batchDownload" class="px-4 py-2 rounded-lg bg-secondary hover:bg-yellow-600 transition-all">
+                            <i class="fa fa-archive mr-2"></i>批量下载
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 奖项申报列表 -->
+        <section>
+            <div class="glass rounded-2xl p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold flex items-center">
+                        <i class="fa fa-list mr-3 text-secondary"></i>
+                        奖项申报列表
+                    </h2>
+                    <div class="flex gap-2">
+                        <button id="newAward" class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-plus mr-2"></i>新增奖项
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 奖项列表表格 -->
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-white/20">
+                                <th class="text-left py-3 px-4">
+                                    <input type="checkbox" id="selectAll" class="mr-2">
+                                    奖项名称
+                                </th>
+                                <th class="text-left py-3 px-4">获奖部门</th>
+                                <th class="text-left py-3 px-4">获奖年份</th>
+                                <th class="text-left py-3 px-4">奖项等级</th>
+                                <th class="text-left py-3 px-4">状态</th>
+                                <th class="text-left py-3 px-4">展示类型</th>
+                                <th class="text-center py-3 px-4">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="awardTableBody">
+                            <!-- 动态生成的表格行 -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- 分页 -->
+                <div class="mt-6 flex justify-center">
+                    <div class="flex space-x-2">
+                        <button class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-chevron-left"></i>
+                        </button>
+                        <button class="px-3 py-2 rounded-lg bg-primary">1</button>
+                        <button class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all">2</button>
+                        <button class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all">3</button>
+                        <button class="px-3 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            <i class="fa fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <!-- 新增/编辑奖项模态框 -->
+    <div id="awardModal" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/50" id="awardOverlay"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="glass rounded-2xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold" id="modalTitle">新增奖项</h2>
+                    <button id="closeModalBtn" class="p-2 rounded-full hover:bg-white/20">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="awardForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block mb-2">奖项名称 *</label>
+                            <input type="text" id="awardName" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2">获奖子项 *</label>
+                            <input type="text" id="awardSubItem" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2">获奖部门 *</label>
+                            <select id="awardDept" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                                <option value="">请选择部门</option>
+                                <option value="设计一部">设计一部</option>
+                                <option value="设计二部">设计二部</option>
+                                <option value="结构院">结构院</option>
+                                <option value="设备院">设备院</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-2">获奖年份 *</label>
+                            <input type="number" id="awardYear" min="2020" max="2030" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary" required>
+                        </div>
+                        <div>
+                            <label class="block mb-2">奖项等级 *</label>
+                            <select id="awardLevel" class="w-full px-4 py-2 rounded-lg glass border border-white/20 focus:outline-none focus:border-primary" required>
+                                <option value="">请选择等级</option>
+                                <option value="国家级">国家级</option>
+                                <option value="省级">省级</option>
+                                <option value="市级">市级</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block mb-2">名次</label>
+                            <input type="text" id="awardRank" placeholder="如：一等奖、第二名" class="w-full px-4 py-2 rounded-lg glass bg-white/5 border border-white/20 focus:outline-none focus:border-primary">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">展示类型</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center">
+                                <input type="radio" name="displayType" value="large" class="mr-2">
+                                <span>大卡片</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="displayType" value="small" class="mr-2" checked>
+                                <span>小卡片</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">封面图片</label>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center">
+                            <input type="file" id="coverImage" accept="image/*" class="hidden">
+                            <button type="button" onclick="document.getElementById('coverImage').click()" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                                <i class="fa fa-upload mr-2"></i>选择图片
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持 JPG、PNG 格式，建议尺寸 800x600</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block mb-2">附件</label>
+                        <div class="border-2 border-dashed border-white/20 rounded-lg p-6 text-center">
+                            <input type="file" id="attachments" multiple class="hidden">
+                            <button type="button" onclick="document.getElementById('attachments').click()" class="px-4 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                                <i class="fa fa-paperclip mr-2"></i>选择附件
+                            </button>
+                            <p class="text-gray-400 text-sm mt-2">支持多个文件，单个文件不超过 30MB</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" id="cancelBtn" class="px-6 py-2 rounded-lg glass hover:bg-white/20 transition-all">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2 rounded-lg bg-primary hover:bg-primary/80 transition-all">
+                            <i class="fa fa-save mr-2"></i>保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 初始化数据
+        let awards = [];
+        async function loadAwards(){
+            try {
+                const { data, error } = await Supa.client.from('awards').select('*').order('created_at', { ascending: false });
+                awards = (!error && Array.isArray(data)) ? data : [];
+            } catch (e) { awards = []; }
+        }
+        
+        let currentEditId = null;
+        
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', async function() {
+            initCharts();
+            await loadAwards();
+            loadAwardTable();
+            initEventListeners();
+        });
+        
+        // 初始化图表
+        function initCharts() {
+            // 奖项类型分布饼图
+            const typeCtx = document.getElementById('typeChart').getContext('2d');
+            new Chart(typeCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['国家级', '省级', '市级'],
+                    datasets: [{
+                        data: [8, 10, 6],
+                        backgroundColor: [
+                            'rgba(212, 175, 55, 0.8)',
+                            'rgba(30, 58, 138, 0.8)',
+                            'rgba(59, 130, 246, 0.8)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.9)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#ffffff'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 年度获奖趋势柱状图
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            new Chart(trendCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['2020', '2021', '2022', '2023', '2024'],
+                    datasets: [{
+                        label: '获奖数量',
+                        data: [3, 5, 4, 7, 8],
+                        backgroundColor: 'rgba(30, 58, 138, 0.8)',
+                        borderColor: 'rgba(30, 58, 138, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#ffffff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#ffffff'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 加载奖项表格
+        function loadAwardTable() {
+            const tbody = document.getElementById('awardTableBody');
+            tbody.innerHTML = '';
+            
+            awards.forEach(award => {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-white/20 hover:bg-white/10 transition-colors';
+                
+                const statusClass = award.status === '已获奖' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400';
+                const levelClass = award.level === '国家级' ? 'bg-red-500/20 text-red-400' : 
+                                   award.level === '省级' ? 'bg-blue-500/20 text-blue-400' : 
+                                   'bg-gray-500/20 text-gray-400';
+                
+                row.innerHTML = `
+                    <td class="py-3 px-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" class="award-checkbox mr-3" data-id="${award.id}">
+                            <div>
+                                <div class="font-medium">${award.name}</div>
+                                <div class="text-sm text-gray-400">${award.subItem}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4">${award.dept}</td>
+                    <td class="py-3 px-4">${award.year}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs ${levelClass}">${award.level}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs ${statusClass}">${award.status}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-1 rounded-full text-xs ${award.displayType === 'large' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'}">${award.displayType === 'large' ? '大卡片' : '小卡片'}</span>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="editAward('${award.id}')" class="px-2 py-1 text-xs rounded glass hover:bg-white/20 transition-all mr-1">
+                            <i class="fa fa-edit mr-1"></i>编辑
+                        </button>
+                        <button onclick="deleteAward('${award.id}')" class="px-2 py-1 text-xs rounded bg-red-500/80 hover:bg-red-500 transition-all">
+                            <i class="fa fa-trash mr-1"></i>删除
+                        </button>
+                    </td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+        
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 返回按钮
+            document.getElementById('backBtn').addEventListener('click', function() {
+                window.location.href = 'awardindex.html';
+            });
+            
+            // 新增奖项按钮
+            document.getElementById('newAward').addEventListener('click', function() {
+                currentEditId = null;
+                document.getElementById('modalTitle').textContent = '新增奖项';
+                document.getElementById('awardForm').reset();
+                document.getElementById('awardModal').classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            });
+            
+            // 关闭模态框
+            document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+            document.getElementById('awardOverlay').addEventListener('click', closeModal);
+            document.getElementById('cancelBtn').addEventListener('click', closeModal);
+            
+            // 表单提交
+            document.getElementById('awardForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveAward();
+            });
+            
+            // 全选复选框
+            document.getElementById('selectAll').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.award-checkbox');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+            });
+            
+            // 应用筛选
+            document.getElementById('applyFilter').addEventListener('click', function() {
+                showToast('筛选已应用');
+            });
+            
+            // 重置筛选
+            document.getElementById('resetFilter').addEventListener('click', function() {
+                document.getElementById('filterName').value = '';
+                document.getElementById('filterDept').value = '';
+                document.getElementById('filterYear').value = '';
+                document.getElementById('filterLevel').value = '';
+                showToast('筛选已重置');
+            });
+            
+            // 导出Excel
+            document.getElementById('exportExcel').addEventListener('click', function() {
+                exportToExcel();
+            });
+
+            // 权限门控
+            try {
+                document.getElementById('addAwardBtn')?.setAttribute('data-permission','awards:create');
+                document.getElementById('exportExcel')?.setAttribute('data-permission','awards:export');
+                Common.guardUI(document);
+            } catch(e){}
+            
+            // 批量下载
+            document.getElementById('batchDownload').addEventListener('click', function() {
+                const selectedIds = Array.from(document.querySelectorAll('.award-checkbox:checked')).map(cb => cb.dataset.id);
+                if (selectedIds.length === 0) {
+                    showToast('请先选择要下载的奖项', 'error');
+                    return;
+                }
+                showToast(`开始下载 ${selectedIds.length} 个奖项的附件`);
+            });
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('awardModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            document.getElementById('awardForm').reset();
+        }
+        
+        // 保存奖项
+        async function saveAward() {
+            const gu = await Supa.client.auth.getUser();
+            const user = (gu && gu.data && gu.data.user) || null;
+            if (!user) { showToast('请先登录', 'error'); return; }
+            if (window.Common){ const ok = await Common.ensureNotFrozen(); if (!ok) return; }
+            const pr = await Supa.client.from('profiles').select('org_id').eq('id', user.id).single();
+            const orgId = pr && pr.data && pr.data.org_id;
+            if (!orgId) { showToast('未设置组织归属', 'error'); return; }
+            const awardData = {
+                name: document.getElementById('awardName').value,
+                subItem: document.getElementById('awardSubItem').value,
+                dept: document.getElementById('awardDept').value,
+                year: document.getElementById('awardYear').value,
+                level: document.getElementById('awardLevel').value,
+                rank: document.getElementById('awardRank').value,
+                displayType: document.querySelector('input[name="displayType"]:checked').value,
+                status: '审核中',
+                org_id: orgId,
+                created_by: user.id
+            };
+            const dbPayload = {
+                name: awardData.name,
+                subItem: awardData.subItem,
+                dept: awardData.dept,
+                year: awardData.year,
+                level: awardData.level,
+                rank: awardData.rank,
+                display_type: awardData.displayType,
+                status: awardData.status,
+                org_id: awardData.org_id,
+                created_by: awardData.created_by
+            };
+            
+            if (currentEditId) {
+                // 编辑模式
+                const index = awards.findIndex(a => a.id === currentEditId);
+                if (index !== -1) {
+                    const updated = { ...awards[index], ...awardData };
+                    awards[index] = updated;
+                    const up = await Supa.client.from('awards').update(dbPayload).eq('id', updated.id);
+                    if (up && up.error) { showToast('更新失败：'+(up.error.message||'错误'), 'error'); }
+                }
+                showToast('奖项更新成功');
+            } else {
+                // 新增模式
+                const ins = await Supa.client.from('awards').insert(dbPayload).select('*').single();
+                if (ins && ins.error) { showToast('创建失败：'+(ins.error.message||'错误'), 'error'); return; }
+                if (ins && ins.data) {
+                    const inserted = { ...ins.data, displayType: ins.data.display_type };
+                    awards.unshift(inserted);
+                }
+                showToast('奖项添加成功');
+            }
+            
+            loadAwardTable();
+            closeModal();
+        }
+        
+        // 编辑奖项
+        function editAward(id) {
+            const award = awards.find(a => a.id === id);
+            if (!award) return;
+            
+            currentEditId = id;
+            document.getElementById('modalTitle').textContent = '编辑奖项';
+            
+            // 填充表单
+            document.getElementById('awardName').value = award.name;
+            document.getElementById('awardSubItem').value = award.subItem;
+            document.getElementById('awardDept').value = award.dept;
+            document.getElementById('awardYear').value = award.year;
+            document.getElementById('awardLevel').value = award.level;
+            document.getElementById('awardRank').value = award.rank;
+            document.querySelector(`input[name="displayType"][value="${award.displayType}"]`).checked = true;
+            
+            document.getElementById('awardModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // 删除奖项
+        async function deleteAward(id) {
+            if (!confirm('确定要删除这个奖项吗？')) return;
+            if (window.Common){ const ok = await Common.ensureNotFrozen(); if (!ok) return; }
+            
+            const index = awards.findIndex(a => a.id === id);
+            if (index !== -1) {
+                try { await Supa.client.from('awards').delete().eq('id', id); } catch (e) {}
+                awards.splice(index, 1);
+                loadAwardTable();
+                showToast('奖项删除成功');
+            }
+        }
+        
+        // 导出Excel
+        function exportToExcel() {
+            const selectedAwards = awards.filter(award => {
+                const checkbox = document.querySelector(`.award-checkbox[data-id="${award.id}"]`);
+                return !checkbox || checkbox.checked;
+            });
+            
+            if (selectedAwards.length === 0) {
+                showToast('没有可导出的数据', 'error');
+                return;
+            }
+            
+            // 准备数据
+            const data = selectedAwards.map(award => ({
+                '奖项名称': award.name,
+                '获奖子项': award.subItem,
+                '获奖部门': award.dept,
+                '获奖年份': award.year,
+                '奖项等级': award.level,
+                '名次': award.rank,
+                '状态': award.status,
+                '展示类型': award.displayType === 'large' ? '大卡片' : '小卡片'
+            }));
+            
+            // 创建工作簿
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '奖项列表');
+            
+            // 下载文件
+            const fileName = `奖项列表_${new Date().toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            
+            showToast('Excel文件导出成功');
+        }
+        
+        // 显示提示消息
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed top-20 right-4 px-6 py-3 rounded-lg z-50 transition-all transform translate-x-full opacity-0`;
+            
+            if (type === 'success') {
+                toast.classList.add('bg-green-500', 'text-white');
+            } else if (type === 'error') {
+                toast.classList.add('bg-red-500', 'text-white');
+            } else {
+                toast.classList.add('bg-blue-500', 'text-white');
+            }
+            
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.remove('translate-x-full', 'opacity-0');
+            }, 10);
+            
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => {
+                    document.body.removeChild(toast);
+                }, 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
